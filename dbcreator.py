@@ -5,7 +5,7 @@ import csv
 import cv2
 import os
 
-image_dimensions = [100, 100]
+image_dimensions = (100, 100)
 
 training_csv_file = "../Data/mass_case_description_train_set.csv"
 testing_csv_file = "../Data/mass_case_description_test_set.csv"
@@ -21,9 +21,10 @@ def _bytes_feature(value):
 
 
 def read_image_file(filename):
-    image = dicom.read_file(filename)
-    image = np.resize(image, [100, 100])
-    print(image)
+    dicom_file = dicom.read_file(filename)
+    image = dicom_file.pixel_array
+    image = image.astype(np.uint16)
+    image = cv2.resize(image, image_dimensions)
     return image
 
 
@@ -37,7 +38,12 @@ def read_csv_file(filename):
             image_view = 1
         else:
             image_view = 0
-        return row[12], label, image_view, row[1]
+        print(row[12])
+        if ((os.path.getsize(str("../Data/DOI/"+str(row[12]))))/(1024.*1024)) > 2:
+            path = row[13].replace("\n", '')
+            return path, label, image_view, int(row[1])
+        else:
+            return row[12], label, image_view, int(row[1])
     patients = []
     with open(filename, 'r') as f:
         reader = csv.reader(f, delimiter=',')
@@ -50,9 +56,9 @@ def read_csv_file(filename):
 
 def create_train_val_database(patients_data, val_patients_data):
     writer = tf.python_io.TFRecordWriter(
-        "Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
+        "../Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
     for i in range(len(patients_data)):
-        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).toString()
+        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tostring()
         label = patients_data[i][1]
         image_view = patients_data[i][2]
         density = patients_data[i][3]
@@ -65,9 +71,9 @@ def create_train_val_database(patients_data, val_patients_data):
         writer.write(example.SerializeToString())
     writer.close()
     writer = tf.python_io.TFRecordWriter(
-        "Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
+        "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
     for i in range(len(val_patients_data)):
-        image = read_image_file("../Data/DOI/"+str(val_patients_data[i][0])).toString()
+        image = read_image_file("../Data/DOI/"+str(val_patients_data[i][0])).tostring()
         label = val_patients_data[i][1]
         image_view = val_patients_data[i][2]
         density = val_patients_data[i][3]
@@ -83,9 +89,9 @@ def create_train_val_database(patients_data, val_patients_data):
 
 def create_test_database(patients_data):
     writer = tf.python_io.TFRecordWriter(
-        "Data/test_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
+        "../Data/test_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
     for i in range(len(patients_data)):
-        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).toString()
+        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tostring()
         label = patients_data[i][1]
         image_view = patients_data[i][2]
         density = patients_data[i][3]
