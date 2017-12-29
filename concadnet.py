@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
 
-batch_size = 100
+batch_size = 50
 learning_rate = 0.001
 num_epochs = 10
 
@@ -16,8 +16,10 @@ with tf.device("/GPU:0"):
         with tf.variable_scope('ConvNet', reuse=reuse):
             x = 2*(x/tf.reduce_max(x))
             conv = conv2d(x, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = flatten(conv)
-            conv = fully_connected(conv, 512, activation_fn=None)
             conv = fully_connected(conv, 256, activation_fn=None)
             conv = dropout(conv, keep_prob)
             conv = fully_connected(conv, 1, activation_fn=None)
@@ -42,15 +44,13 @@ with tf.device("/cpu:0"):
         return {"image": image, "image_view": image_view, "breast_density": breast_density}, label
     dataset = tf.data.TFRecordDataset(train_dataset_file)
     dataset = dataset.map(parser_function)
-    dataset = dataset.repeat(1)
+    dataset = dataset.repeat(2)
     dataset = dataset.batch(batch_size)
     iterator = dataset.make_initializable_iterator()
 
 with tf.Session() as sess:
     x = tf.placeholder(tf.uint16, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
     y = tf.placeholder(tf.int8, shape=[None, 1], name="label")
-    x2 = tf.placeholder(tf.float32, shape=[None, 1], name="image_view")
-    x3 = tf.placeholder(tf.float32, shape=[None, 1], name="breast_density")
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
     logits = convnet(x, keep_prob, reuse=False, is_training=True)
@@ -71,10 +71,13 @@ with tf.Session() as sess:
                 features, labels = iterator.get_next()
                 images = sess.run(features["image"])
                 labels = sess.run(labels)
-                _, loss = sess.run([train_op, loss_op], feed_dict={x: images,
+                _, loss, a = sess.run([train_op, loss_op, auc], feed_dict={x: images,
                                                                    y: labels,
                                                                    keep_prob: 0.8})
+                batch += len(images)
                 print("Batch Loss: " + str(loss))
+                print(a)
             except tf.errors.OutOfRangeError:
+                print(batch)
                 print("Epoch Completed: " + str(epoch))
                 break
