@@ -35,22 +35,18 @@ def read_csv_file(filename):
             label = 1
         else:
             label = 0
-        if row[3] == "MLO":
-            image_view = 1
-        else:
-            image_view = 0
         if ((os.path.getsize(str("../Data/DOI/"+str(row[12]))))/(1024.*1024)) > 2:
             path = row[13].replace("\n", '')
-            return path, label, image_view, int(row[1])
+            return path, label
         else:
-            return row[12], label, image_view, int(row[1])
+            return row[12], label
     patients = []
     with open(filename, 'r') as f:
         reader = csv.reader(f, delimiter=',')
         next(reader, None)
         for row in reader:
-            image_path, label, image_view, breast_density = sort_row(row)
-            patients.append([image_path, label, image_view, breast_density])
+            image_path, label = sort_row(row)
+            patients.append([image_path, label])
     return patients
 
 
@@ -58,30 +54,22 @@ def create_train_val_database(patients_data, val_patients_data):
     writer = tf.python_io.TFRecordWriter(
         "../Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
     for i in range(len(patients_data)):
-        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tostring()
+        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tobytes()
         label = patients_data[i][1]
-        image_view = patients_data[i][2]
-        density = patients_data[i][3]
         example = tf.train.Example(features=tf.train.Features(feature={
             'image': _bytes_feature(image),
             'label': _int64_feature(label),
-            'image_view': _int64_feature(image_view),
-            'breast_density': _int64_feature(density)
         }))
         writer.write(example.SerializeToString())
     writer.close()
     writer = tf.python_io.TFRecordWriter(
         "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
     for i in range(len(val_patients_data)):
-        image = read_image_file("../Data/DOI/"+str(val_patients_data[i][0])).tostring()
+        image = read_image_file("../Data/DOI/"+str(val_patients_data[i][0])).tobytes()
         label = val_patients_data[i][1]
-        image_view = val_patients_data[i][2]
-        density = val_patients_data[i][3]
         example = tf.train.Example(features=tf.train.Features(feature={
             'image': _bytes_feature(image),
             'label': _int64_feature(label),
-            'image_view': _int64_feature(image_view),
-            'breast_density': _int64_feature(density)
         }))
         writer.write(example.SerializeToString())
     writer.close()
@@ -91,15 +79,11 @@ def create_test_database(patients_data):
     writer = tf.python_io.TFRecordWriter(
         "../Data/test_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
     for i in range(len(patients_data)):
-        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tostring()
+        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tobytes()
         label = patients_data[i][1]
-        image_view = patients_data[i][2]
-        density = patients_data[i][3]
         example = tf.train.Example(features=tf.train.Features(feature={
             'image': _bytes_feature(image),
             'label': _int64_feature(label),
-            'image_view': _int64_feature(image_view),
-            'breast_density': _int64_feature(density)
         }))
         writer.write(example.SerializeToString())
     writer.close()
@@ -116,15 +100,11 @@ def patients_sequencer(filename, training):
             if i < num_examples*0.8:
                 image_path = patients[random_array[i]][0]
                 label = patients[random_array[i]][1]
-                image_view = patients[random_array[i]][2]
-                density = patients[random_array[i]][3]
-                train_patients.append([image_path, label, image_view, density])
+                train_patients.append([image_path, label])
             else:
                 image_path = patients[random_array[i]][0]
                 label = patients[random_array[i]][1]
-                image_view = patients[random_array[i]][2]
-                density = patients[random_array[i]][3]
-                val_patients.append([image_path, label, image_view, density])
+                val_patients.append([image_path, label])
         return train_patients, val_patients
     else:
         test_patients = []
@@ -133,9 +113,7 @@ def patients_sequencer(filename, training):
         for i in range(num_examples):
             image_path = patients[i][0]
             label = patients[i][1]
-            image_view = patients[i][2]
-            density = patients[i][3]
-            test_patients.append([image_path, label, image_view, density])
+            test_patients.append([image_path, label])
         return test_patients
 
 

@@ -20,11 +20,9 @@ with tf.device("/GPU:0"):
             x = 5*(x/tf.reduce_max(x))
             conv = conv2d(x, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv1 = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
 
             conv = conv2d(x, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
 
@@ -33,11 +31,9 @@ with tf.device("/GPU:0"):
 
             conv = conv2d(concat, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv1 = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
 
             conv = conv2d(concat, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 8, (3, 3), activation_fn=tf.nn.leaky_relu)
 
@@ -56,17 +52,13 @@ with tf.device("/cpu:0"):
     def parser_function(example_proto):
         features = {
             "image": tf.FixedLenFeature((), tf.string, default_value=""),
-            "label": tf.FixedLenFeature((), tf.int64, default_value=0),
-            "image_view": tf.FixedLenFeature((), tf.int64, default_value=1),
-            "breast_density": tf.FixedLenFeature((), tf.int64, default_value=1)
+            "label": tf.FixedLenFeature((), tf.int64, default_value=0)
         }
         parsed_features = tf.parse_single_example(example_proto, features)
         image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.uint16),
                            [image_dimensions[0], image_dimensions[1], 1])
         label = tf.one_hot(tf.cast(parsed_features["label"], tf.int32), 2, on_value=1, off_value=0)
-        image_view = tf.reshape(tf.cast(parsed_features["image_view"], tf.int8), [1])
-        breast_density = tf.reshape(tf.cast(parsed_features["breast_density"], tf.int8), [1])
-        return {"image": image, "image_view": image_view, "breast_density": breast_density}, label
+        return image, label
     dataset = tf.data.TFRecordDataset(train_dataset_file)
     dataset = dataset.map(parser_function)
     dataset = dataset.repeat(3)
@@ -97,9 +89,7 @@ with tf.Session() as sess:
         while True:
             batch += 1
             try:
-                features, labels = iterator.get_next()
-                images = sess.run(features["image"])
-                labels = sess.run(labels)
+                images, labels = sess.run(iterator.get_next())
                 _, loss, a = sess.run([train_op, loss_op, auc], feed_dict={x: images,
                                                                            y: labels,
                                                                            keep_prob: 0.8})
