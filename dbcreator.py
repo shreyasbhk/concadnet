@@ -25,6 +25,7 @@ def read_image_file(filename):
     image = dicom_file.pixel_array
     image = image.astype(np.uint16)
     image = cv2.resize(image, image_dimensions)
+    image = np.expand_dims(image, axis=-1)
     return image
 
 
@@ -38,7 +39,6 @@ def read_csv_file(filename):
             image_view = 1
         else:
             image_view = 0
-        print(row[12])
         if ((os.path.getsize(str("../Data/DOI/"+str(row[12]))))/(1024.*1024)) > 2:
             path = row[13].replace("\n", '')
             return path, label, image_view, int(row[1])
@@ -105,8 +105,8 @@ def create_test_database(patients_data):
     writer.close()
 
 
-def patients_sequencer(filename, type="training"):
-    if type == "training":
+def patients_sequencer(filename, training):
+    if training:
         train_patients, val_patients = [], []
         patients = read_csv_file(filename)
         num_examples = len(patients)
@@ -140,7 +140,7 @@ def patients_sequencer(filename, type="training"):
 
 
 if __name__ == '__main__':
-    train_patients, val_patients = patients_sequencer(training_csv_file, type="training")
-    test_patients = patients_sequencer(testing_csv_file, type="testing")
+    train_patients, val_patients = patients_sequencer(training_csv_file, training=True)
+    test_patients = patients_sequencer(testing_csv_file, training=False)
     create_train_val_database(train_patients, val_patients)
     create_test_database(test_patients)
