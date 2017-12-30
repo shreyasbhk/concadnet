@@ -7,8 +7,10 @@ import os
 
 image_dimensions = (100, 100)
 
-training_csv_file = "../Data/mass_case_description_train_set.csv"
-testing_csv_file = "../Data/mass_case_description_test_set.csv"
+training_csv_file_m = "../Data/mass_case_description_train_set.csv"
+training_csv_file_c = "../Data/calc_case_description_train_set.csv"
+testing_csv_file_m = "../Data/mass_case_description_test_set.csv"
+testing_csv_file_c = "../Data/calc_case_description_test_set.csv"
 images_location = ""
 
 
@@ -29,24 +31,25 @@ def read_image_file(filename):
     return image
 
 
-def read_csv_file(filename):
-    def sort_row(row):
-        if row[9] == "MALIGNANT":
-            label = 1
-        else:
-            label = 0
-        if ((os.path.getsize(str("../Data/DOI/"+str(row[12]))))/(1024.*1024)) > 2:
-            path = row[13].replace("\n", '')
-            return path, label
-        else:
-            return row[12], label
+def read_csv_file(filenames):
     patients = []
-    with open(filename, 'r') as f:
-        reader = csv.reader(f, delimiter=',')
-        next(reader, None)
-        for row in reader:
-            image_path, label = sort_row(row)
-            patients.append([image_path, label])
+    for filename in filenames:
+        def sort_row(row):
+            if row[9] == "MALIGNANT":
+                label = 1
+            else:
+                label = 0
+            if ((os.path.getsize(str("../Data/DOI/"+str(row[12].replace("\n", '')))))/(1024.*1024)) > 2:
+                path = row[13].replace("\n", '')
+                return path, label
+            else:
+                return row[12].replace("\n", ''), label
+        with open(filename, 'r') as f:
+            reader = csv.reader(f, delimiter=',')
+            next(reader, None)
+            for row in reader:
+                image_path, label = sort_row(row)
+                patients.append([image_path, label])
     print(len(patients))
     return patients
 
@@ -119,7 +122,7 @@ def patients_sequencer(filename, training):
 
 
 if __name__ == '__main__':
-    train_patients, val_patients = patients_sequencer(training_csv_file, training=True)
-    test_patients = patients_sequencer(testing_csv_file, training=False)
+    train_patients, val_patients = patients_sequencer([training_csv_file_m, training_csv_file_c], training=True)
+    test_patients = patients_sequencer([testing_csv_file_m, testing_csv_file_c], training=False)
     create_train_val_database(train_patients, val_patients)
     create_test_database(test_patients)

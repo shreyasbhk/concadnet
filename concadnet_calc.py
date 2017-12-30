@@ -1,20 +1,17 @@
-'''
-Runs on Calc and Mass Data
-'''
 import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
 from sklearn.metrics import confusion_matrix, roc_auc_score
 
 model_version = 2
 batch_size = 100
-val_batch_size = 300
+val_batch_size = 100
 learning_rate = 0.001
 num_epochs = 200
 
 image_dimensions = (100, 100)
-train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
-val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
-test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+train_dataset_file = "../Data/calc_train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+val_dataset_file = "../Data/calc_val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+test_dataset_file = "../Data/calc_test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
 
 
 def print_progress(epoch, batch, auc, loss, val_auc, val_loss):
@@ -28,9 +25,11 @@ with tf.device("/GPU:0"):
             conv = conv2d(x, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv1 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
 
             conv = conv2d(x, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
@@ -41,9 +40,11 @@ with tf.device("/GPU:0"):
             conv = conv2d(concat, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv1 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
 
             conv = conv2d(concat, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
@@ -95,6 +96,7 @@ with tf.Session() as sess:
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(loss_op)
     auc = tf.metrics.auc(y, make_sense_logits, num_thresholds=20)
+    vauc = tf.metrics.auc(y, make_sense_logits, num_thresholds=20)
     saver = tf.train.Saver(max_to_keep=40)
     sess.run(tf.group(tf.global_variables_initializer(), tf.local_variables_initializer()))
     for epoch in range(num_epochs):
@@ -108,12 +110,12 @@ with tf.Session() as sess:
             batch += 1
             try:
                 images, labels = sess.run(iterator.get_next())
-                _, preds, loss = sess.run([train_op, auc, loss_op], feed_dict={x: images,
+                _, preds, loss = sess.run([train_op, make_sense_logits, loss_op], feed_dict={x: images,
                                                                    y: labels,
                                                                    keep_prob: 0.8})
                 epoch_loss += loss
-                #epoch_auc += roc_auc_score(labels, preds)
-                epoch_auc += preds[0]
+                epoch_auc += roc_auc_score(labels, preds)
+                #epoch_auc += preds[0]
                 if batch%10==0 and batch!=0:
                     sess.run(val_iterator.initializer)
                     val_batch = -1
@@ -124,13 +126,13 @@ with tf.Session() as sess:
                         val_batch += 1
                         try:
                             val_images, val_labels = sess.run(val_iterator.get_next())
-                            preds, loss= sess.run([auc, loss_op], feed_dict={x:val_images,
+                            preds, loss= sess.run([make_sense_logits, loss_op], feed_dict={x:val_images,
                                                                                            y: val_labels,
                                                                                            keep_prob: 1.0})
                             #tn, fp, fn, tp = confusion_matrix(val_labels, preds)
                             val_loss += loss
-                            #val_auc += roc_auc_score(val_labels, preds)
-                            val_auc += preds[0]
+                            val_auc += roc_auc_score(val_labels, preds)
+                            #val_auc += preds[0]
                         except tf.errors.OutOfRangeError:
                             print_progress(epoch, batch, epoch_auc/batch, epoch_loss/batch, val_auc/val_batch,
                                            val_loss/val_batch)
@@ -140,5 +142,5 @@ with tf.Session() as sess:
                     _ = saver.save(sess, save_path=str("../Models/Breast_Cancer/model-"+str(model_version)),
                                    global_step=epoch)
                 break
-        if val_loss / val_batch > 8 * epoch_loss / batch:
+        if val_loss / val_batch > 4 * epoch_loss / batch:
             break

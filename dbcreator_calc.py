@@ -7,8 +7,8 @@ import os
 
 image_dimensions = (100, 100)
 
-training_csv_file = "../Data/mass_case_description_train_set.csv"
-testing_csv_file = "../Data/mass_case_description_test_set.csv"
+training_csv_file = "../Data/calc_case_description_train_set.csv"
+testing_csv_file = "../Data/calc_case_description_test_set.csv"
 images_location = ""
 
 
@@ -35,11 +35,8 @@ def read_csv_file(filename):
             label = 1
         else:
             label = 0
-        if ((os.path.getsize(str("../Data/DOI/"+str(row[12]))))/(1024.*1024)) > 2:
-            path = row[13].replace("\n", '')
-            return path, label
-        else:
-            return row[12], label
+        path = row[13].replace("000000.dcm\n", "000001.dcm")
+        return path, label
     patients = []
     with open(filename, 'r') as f:
         reader = csv.reader(f, delimiter=',')
@@ -47,13 +44,12 @@ def read_csv_file(filename):
         for row in reader:
             image_path, label = sort_row(row)
             patients.append([image_path, label])
-    print(len(patients))
     return patients
 
 
 def create_train_val_database(patients_data, val_patients_data):
     writer = tf.python_io.TFRecordWriter(
-        "../Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
+        "../Data/calc_train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
     for i in range(len(patients_data)):
         image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tobytes()
         label = patients_data[i][1]
@@ -64,7 +60,7 @@ def create_train_val_database(patients_data, val_patients_data):
         writer.write(example.SerializeToString())
     writer.close()
     writer = tf.python_io.TFRecordWriter(
-        "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
+        "../Data/calc_val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
     for i in range(len(val_patients_data)):
         image = read_image_file("../Data/DOI/"+str(val_patients_data[i][0])).tobytes()
         label = val_patients_data[i][1]
@@ -78,7 +74,7 @@ def create_train_val_database(patients_data, val_patients_data):
 
 def create_test_database(patients_data):
     writer = tf.python_io.TFRecordWriter(
-        "../Data/test_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
+        "../Data/calc_test_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
     for i in range(len(patients_data)):
         image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tobytes()
         label = patients_data[i][1]

@@ -1,6 +1,3 @@
-'''
-Runs on Calc and Mass Data
-'''
 import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
 from sklearn.metrics import confusion_matrix, roc_auc_score
@@ -11,7 +8,7 @@ batch_size = 100
 
 num_epochs = 200
 image_dimensions = (100, 100)
-test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+test_dataset_file = "../Data/calc_test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
 
 
 with tf.device("/GPU:0"):
@@ -87,7 +84,7 @@ def test_model(epoch_number):
             test_batch += 1
             try:
                 images, labels = sess.run(iterator.get_next())
-                preds= sess.run(make_sense_logits, feed_dict={x: images,
+                preds, a = sess.run([make_sense_logits, auc], feed_dict={x: images,
                                                                          y: labels,
                                                                          keep_prob: 1})
                 test_auc += roc_auc_score(labels, preds)
