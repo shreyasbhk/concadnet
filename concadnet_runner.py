@@ -7,10 +7,10 @@ from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, full
 from sklearn.metrics import confusion_matrix, roc_auc_score
 import os
 
-model_version = 3
+model_version = 4
 batch_size = 100
 
-num_epochs = 200
+num_epochs = 2000
 image_dimensions = (100, 100)
 test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
 
@@ -18,36 +18,45 @@ test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_d
 with tf.device("/GPU:0"):
     def convnet(x, keep_prob, reuse):
         with tf.variable_scope('ConvNet', reuse=reuse):
-            x = 5 * (x / tf.reduce_max(x))
-            conv = conv2d(x, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv1 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-
-            conv = conv2d(x, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-
+            x = 5 * (x / tf.reduce_max(tf.reduce_max(x)))
+            conv = conv2d(x, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv1 = max_pool2d(conv, (3, 3), (2, 2))
+            conv = conv2d(x, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv, (3, 3), (2, 2))
             concat = tf.concat([conv1, conv2], axis=3)
-            concat = max_pool2d(concat, (3, 3), (2, 2))
 
-            conv = conv2d(concat, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv1 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-
-            conv = conv2d(concat, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-            conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
-
+            conv = conv2d(concat, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv1 = max_pool2d(conv, (3, 3), (2, 2))
+            conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv, (3, 3), (2, 2))
             concat = tf.concat([conv1, conv2], axis=3)
-            concat = max_pool2d(concat, (3, 3), (2, 2))
 
+            conv = conv2d(concat, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv1 = max_pool2d(conv, (3, 3), (2, 2))
+            conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv, (3, 3), (2, 2))
+            concat = tf.concat([conv1, conv2], axis=3)
+            print(concat)
             conv = flatten(concat)
-            conv = fully_connected(conv, 256, activation_fn=None)
-            conv = dropout(conv, keep_prob)
+            conv = fully_connected(conv, 128, activation_fn=None)
+            # conv = dropout(conv, keep_prob)
+            conv = fully_connected(conv, 32, activation_fn=None)
+            # conv = dropout(conv, keep_prob)
             conv = fully_connected(conv, 1, activation_fn=None)
         return conv
 
@@ -79,7 +88,8 @@ def test_model(epoch_number):
         auc = tf.metrics.auc(y, make_sense_logits)
 
         saver = tf.train.Saver()
-        saver.restore(sess, save_path=str("../Models/Breast_Cancer/model-"+str(model_version)+"-"+str(epoch_number)))
+        saver.restore(sess, save_path=str("../Models/Breast_Cancer/model-"+str(model_version)+"-"+str(
+            epoch_number)))
         sess.run(tf.local_variables_initializer())
         sess.run(iterator.initializer)
         test_auc = 0

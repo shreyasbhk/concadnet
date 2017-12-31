@@ -62,15 +62,17 @@ def read_csv_file(filenames):
                 label = 0
             if ((os.path.getsize(str("../Data/DOI/"+str(row[12].replace("\n", '')))))/(1024.*1024)) > 2:
                 path = row[13].replace("\n", '')
-                return path, label
             else:
-                return row[12].replace("\n", ''), label
+                path = row[12].replace("\n", '')
+            subtlety = int(row[10])
+            b_density = int(row[1])
+            return path, label, subtlety, b_density
         with open(filename, 'r') as f:
             reader = csv.reader(f, delimiter=',')
             next(reader, None)
             for row in reader:
-                image_path, label = sort_row(row)
-                patients.append([image_path, label])
+                image_path, label, subtlety, density = sort_row(row)
+                patients.append([image_path, label, subtlety, density])
     print(len(patients))
     return patients
 
@@ -83,9 +85,13 @@ def create_train_val_database(patients_data, val_patients_data):
             image = read_image_file("../Data/DOI/"+str(patients_data[i][0]))
             image = add_random_augmentation(image).tobytes()
             label = patients_data[i][1]
+            subtlety = patients_data[i][2]
+            density = patients_data[i][3]
             example = tf.train.Example(features=tf.train.Features(feature={
                 'image': _bytes_feature(image),
                 'label': _int64_feature(label),
+                'subtlety': _int64_feature(subtlety),
+                'density': _int64_feature(density)
             }))
             writer.write(example.SerializeToString())
     writer.close()
@@ -94,9 +100,13 @@ def create_train_val_database(patients_data, val_patients_data):
     for i in range(len(val_patients_data)):
         image = read_image_file("../Data/DOI/"+str(val_patients_data[i][0])).tobytes()
         label = val_patients_data[i][1]
+        subtlety = patients_data[i][2]
+        density = patients_data[i][3]
         example = tf.train.Example(features=tf.train.Features(feature={
             'image': _bytes_feature(image),
             'label': _int64_feature(label),
+            'subtlety': _int64_feature(subtlety),
+            'density': _int64_feature(density)
         }))
         writer.write(example.SerializeToString())
     writer.close()
@@ -108,9 +118,13 @@ def create_test_database(patients_data):
     for i in range(len(patients_data)):
         image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tobytes()
         label = patients_data[i][1]
+        subtlety = patients_data[i][2]
+        density = patients_data[i][3]
         example = tf.train.Example(features=tf.train.Features(feature={
             'image': _bytes_feature(image),
             'label': _int64_feature(label),
+            'subtlety': _int64_feature(subtlety),
+            'density': _int64_feature(density)
         }))
         writer.write(example.SerializeToString())
     writer.close()
@@ -125,22 +139,19 @@ def patients_sequencer(filename, training):
         np.random.shuffle(random_array)
         for i in range(num_examples):
             if i < num_examples*0.8:
-                image_path = patients[random_array[i]][0]
-                label = patients[random_array[i]][1]
-                train_patients.append([image_path, label])
+                patient = patients[random_array[i]]
+                train_patients.append(patient)
             else:
-                image_path = patients[random_array[i]][0]
-                label = patients[random_array[i]][1]
-                val_patients.append([image_path, label])
+                patient = patients[random_array[i]]
+                val_patients.append(patient)
         return train_patients, val_patients
     else:
         test_patients = []
         patients = read_csv_file(filename)
         num_examples = len(patients)
         for i in range(num_examples):
-            image_path = patients[i][0]
-            label = patients[i][1]
-            test_patients.append([image_path, label])
+            patient = patients[i]
+            test_patients.append(patient)
         return test_patients
 
 
