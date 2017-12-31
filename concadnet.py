@@ -5,11 +5,11 @@ import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
 from sklearn.metrics import confusion_matrix, roc_auc_score
 
-model_version = 2
-batch_size = 100
+model_version = 3
+batch_size = 200
 val_batch_size = 300
 learning_rate = 0.001
-num_epochs = 200
+num_epochs = 50
 
 image_dimensions = (100, 100)
 train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
@@ -24,32 +24,34 @@ def print_progress(epoch, batch, auc, loss, val_auc, val_loss):
 with tf.device("/GPU:0"):
     def convnet(x, keep_prob, reuse):
         with tf.variable_scope('ConvNet', reuse=reuse):
-            x = 5 * (x / tf.reduce_max(x))
+            x = 5 * (x / tf.reduce_max(tf.reduce_max(x)))
             conv = conv2d(x, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv1 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv1 = max_pool2d(conv1, (3, 3), (2, 2))
 
             conv = conv2d(x, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv2, (3, 3), (2, 2))
 
-            concat = tf.concat([conv1, conv2], axis=1)
-            concat = max_pool2d(concat, (3, 3), (2, 2))
+            concat = tf.concat([conv1, conv2], axis=3)
 
             conv = conv2d(concat, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv1 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv1 = max_pool2d(conv1, (3, 3), (2, 2))
 
             conv = conv2d(concat, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv2, (3, 3), (2, 2))
 
-            concat = tf.concat([conv1, conv2], axis=1)
-            concat = max_pool2d(concat, (3, 3), (2, 2))
+            concat = tf.concat([conv1, conv2], axis=3)
 
             conv = flatten(concat)
             conv = fully_connected(conv, 256, activation_fn=None)
@@ -64,7 +66,7 @@ with tf.device("/cpu:0"):
             "label": tf.FixedLenFeature((), tf.int64, default_value=0)
         }
         parsed_features = tf.parse_single_example(example_proto, features)
-        image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.uint16),
+        image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.float32),
                            [image_dimensions[0], image_dimensions[1], 1])
         label = tf.reshape(tf.cast(parsed_features["label"], tf.int32), [1])
         return image, label
@@ -75,7 +77,7 @@ with tf.device("/cpu:0"):
     dataset = dataset.batch(batch_size)
     iterator = dataset.make_initializable_iterator()
 
-    val_dataset = tf.data.TFRecordDataset(test_dataset_file)
+    val_dataset = tf.data.TFRecordDataset(val_dataset_file)
     val_dataset = val_dataset.map(parser_function)
     val_dataset = val_dataset.repeat(1)
     val_dataset = val_dataset.shuffle(val_batch_size)
@@ -83,7 +85,7 @@ with tf.device("/cpu:0"):
     val_iterator = val_dataset.make_initializable_iterator()
 
 with tf.Session() as sess:
-    x = tf.placeholder(tf.uint16, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
+    x = tf.placeholder(tf.float32, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
     y = tf.placeholder(tf.int32, shape=[None, 1], name="label")
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
@@ -95,7 +97,7 @@ with tf.Session() as sess:
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(loss_op)
     auc = tf.metrics.auc(y, make_sense_logits, num_thresholds=20)
-    saver = tf.train.Saver(max_to_keep=40)
+    saver = tf.train.Saver(max_to_keep=50)
     sess.run(tf.group(tf.global_variables_initializer(), tf.local_variables_initializer()))
     for epoch in range(num_epochs):
         sess.run(iterator.initializer)
@@ -136,7 +138,7 @@ with tf.Session() as sess:
                                            val_loss/val_batch)
                             break
             except tf.errors.OutOfRangeError:
-                if epoch%5==0:
+                if epoch%1==0:
                     _ = saver.save(sess, save_path=str("../Models/Breast_Cancer/model-"+str(model_version)),
                                    global_step=epoch)
                 break

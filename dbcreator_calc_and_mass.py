@@ -15,17 +15,38 @@ images_location = ""
 
 
 def _int64_feature(value):
-  return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
 def _bytes_feature(value):
-  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+
+def display_image(image):
+    image = image.astype(np.uint16)
+    cv2.imshow('image', image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def add_random_augmentation(image):
+    row, col = image_dimensions[0], image_dimensions[1]
+    gaussian = np.random.random((row, col, 1)).astype(np.float32)
+    image = cv2.addWeighted(image, 0.75, 0.25 * gaussian, 0.25, 0)
+    rotation_angle = np.random.choice(4, 1)[0]*90
+    m = cv2.getRotationMatrix2D((col / 2, row / 2), rotation_angle, 1)
+    image = cv2.warpAffine(image, m, (col, row))
+    zoom_factor_x = 1+np.random.random()
+    zoom_factor_y = 1+np.random.random()
+    image = cv2.resize(image,image_dimensions, fx=zoom_factor_x, fy=zoom_factor_y, interpolation=0)
+    #display_image(image)
+    return image
 
 
 def read_image_file(filename):
     dicom_file = dicom.read_file(filename)
     image = dicom_file.pixel_array
-    image = image.astype(np.uint16)
+    image = image.astype(np.float32)
     image = cv2.resize(image, image_dimensions)
     image = np.expand_dims(image, axis=-1)
     return image
@@ -57,14 +78,16 @@ def read_csv_file(filenames):
 def create_train_val_database(patients_data, val_patients_data):
     writer = tf.python_io.TFRecordWriter(
         "../Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
-    for i in range(len(patients_data)):
-        image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tobytes()
-        label = patients_data[i][1]
-        example = tf.train.Example(features=tf.train.Features(feature={
-            'image': _bytes_feature(image),
-            'label': _int64_feature(label),
-        }))
-        writer.write(example.SerializeToString())
+    for j in range(10):
+        for i in range(len(patients_data)):
+            image = read_image_file("../Data/DOI/"+str(patients_data[i][0]))
+            image = add_random_augmentation(image).tobytes()
+            label = patients_data[i][1]
+            example = tf.train.Example(features=tf.train.Features(feature={
+                'image': _bytes_feature(image),
+                'label': _int64_feature(label),
+            }))
+            writer.write(example.SerializeToString())
     writer.close()
     writer = tf.python_io.TFRecordWriter(
         "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")

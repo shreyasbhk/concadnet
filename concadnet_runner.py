@@ -1,12 +1,13 @@
 '''
 Runs on Calc and Mass Data
+0.71126 AUC, Model Num 6
 '''
 import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
 from sklearn.metrics import confusion_matrix, roc_auc_score
 import os
 
-model_version = 1
+model_version = 3
 batch_size = 100
 
 num_epochs = 200
@@ -28,7 +29,7 @@ with tf.device("/GPU:0"):
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
 
-            concat = tf.concat([conv1, conv2], axis=1)
+            concat = tf.concat([conv1, conv2], axis=3)
             concat = max_pool2d(concat, (3, 3), (2, 2))
 
             conv = conv2d(concat, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
@@ -41,7 +42,7 @@ with tf.device("/GPU:0"):
             conv = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
             conv2 = conv2d(conv, 16, (3, 3), activation_fn=tf.nn.leaky_relu)
 
-            concat = tf.concat([conv1, conv2], axis=1)
+            concat = tf.concat([conv1, conv2], axis=3)
             concat = max_pool2d(concat, (3, 3), (2, 2))
 
             conv = flatten(concat)
@@ -57,7 +58,7 @@ with tf.device("/cpu:0"):
             "label": tf.FixedLenFeature((), tf.int64, default_value=0)
         }
         parsed_features = tf.parse_single_example(example_proto, features)
-        image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.uint16),
+        image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.float32),
                            [image_dimensions[0], image_dimensions[1], 1])
         label = tf.reshape(tf.cast(parsed_features["label"], tf.int32), [1])
         return image, label
@@ -69,7 +70,7 @@ with tf.device("/cpu:0"):
 
 def test_model(epoch_number):
     with tf.Session() as sess:
-        x = tf.placeholder(tf.uint16, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
+        x = tf.placeholder(tf.float32, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
         y = tf.placeholder(tf.int32, shape=[None, 1], name="label")
         keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
