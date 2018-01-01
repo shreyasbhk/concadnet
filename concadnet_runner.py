@@ -16,20 +16,22 @@ test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_d
 
 
 with tf.device("/GPU:0"):
-    def convnet(x, keep_prob, reuse):
+    def convnet(x, s, d, keep_prob, reuse):
         with tf.variable_scope('ConvNet', reuse=reuse):
-            x = 5 * (x / tf.reduce_max(tf.reduce_max(x)))
+            x = (x / tf.reduce_max(tf.reduce_max(x)))
             conv = conv2d(x, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv1 = max_pool2d(conv, (3, 3), (2, 2))
+
             conv = conv2d(x, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv2 = max_pool2d(conv, (3, 3), (2, 2))
+
             concat = tf.concat([conv1, conv2], axis=3)
 
             conv = conv2d(concat, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
@@ -37,26 +39,31 @@ with tf.device("/GPU:0"):
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv1 = max_pool2d(conv, (3, 3), (2, 2))
+
             conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv2 = max_pool2d(conv, (3, 3), (2, 2))
+
             concat = tf.concat([conv1, conv2], axis=3)
 
             conv = conv2d(concat, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv1 = max_pool2d(conv, (3, 3), (2, 2))
-            conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+
             conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv2 = max_pool2d(conv, (3, 3), (2, 2))
-            concat = tf.concat([conv1, conv2], axis=3)
-            print(concat)
-            conv = flatten(concat)
-            conv = fully_connected(conv, 128, activation_fn=None)
-            # conv = dropout(conv, keep_prob)
-            conv = fully_connected(conv, 32, activation_fn=None)
-            # conv = dropout(conv, keep_prob)
+
+            conv = tf.concat([conv1, conv2], axis=3)
+
+            conv = flatten(conv)
+            conv = fully_connected(conv, 250, activation_fn=tf.nn.leaky_relu)
+            conv1 = fully_connected(s, 25, activation_fn=tf.nn.leaky_relu)
+            conv2 = fully_connected(d, 25, activation_fn=tf.nn.leaky_relu)
+
+            conv = tf.concat([conv, conv1, conv2], axis=1)
+
+            conv = fully_connected(conv, 300, activation_fn=None)
+            conv = dropout(conv, keep_prob)
             conv = fully_connected(conv, 1, activation_fn=None)
         return conv
 
@@ -64,13 +71,17 @@ with tf.device("/cpu:0"):
     def parser_function(example_proto):
         features = {
             "image": tf.FixedLenFeature((), tf.string, default_value=""),
-            "label": tf.FixedLenFeature((), tf.int64, default_value=0)
+            "label": tf.FixedLenFeature((), tf.int64),
+            "subtlety": tf.FixedLenFeature((), tf.int64),
+            "density": tf.FixedLenFeature((), tf.int64)
         }
         parsed_features = tf.parse_single_example(example_proto, features)
         image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.float32),
                            [image_dimensions[0], image_dimensions[1], 1])
         label = tf.reshape(tf.cast(parsed_features["label"], tf.int32), [1])
-        return image, label
+        subtlety = tf.reshape(tf.cast(tf.one_hot(parsed_features["subtlety"], depth=5), tf.float32), [5])
+        density = tf.reshape(tf.cast(tf.one_hot(parsed_features["density"], depth=4), tf.float32), [4])
+        return image, label, subtlety, density
     dataset = tf.data.TFRecordDataset(test_dataset_file)
     dataset = dataset.map(parser_function)
     dataset = dataset.repeat(1)
@@ -81,9 +92,11 @@ def test_model(epoch_number):
     with tf.Session() as sess:
         x = tf.placeholder(tf.float32, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
         y = tf.placeholder(tf.int32, shape=[None, 1], name="label")
+        s = tf.placeholder(tf.float32, shape=[None, 5], name="subtlety")
+        d = tf.placeholder(tf.float32, shape=[None, 4], name="density")
         keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
-        test_logits = convnet(x, keep_prob, reuse=tf.AUTO_REUSE)
+        test_logits = convnet(x, s, d, keep_prob, reuse=tf.AUTO_REUSE)
         make_sense_logits = tf.sigmoid(test_logits)
         auc = tf.metrics.auc(y, make_sense_logits)
 
@@ -97,10 +110,12 @@ def test_model(epoch_number):
         while True:
             test_batch += 1
             try:
-                images, labels = sess.run(iterator.get_next())
+                images, labels, su, de = sess.run(iterator.get_next())
                 preds= sess.run(make_sense_logits, feed_dict={x: images,
-                                                                         y: labels,
-                                                                         keep_prob: 1})
+                                                              y: labels,
+                                                              s: su,
+                                                              d: de,
+                                                              keep_prob: 1})
                 test_auc += roc_auc_score(labels, preds)
                 #test_auc += preds[0]
                 #print(roc_auc_score(labels, preds))

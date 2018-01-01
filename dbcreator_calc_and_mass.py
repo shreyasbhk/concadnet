@@ -17,17 +17,14 @@ images_location = ""
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
 
 def display_image(image):
     image = image.astype(np.uint16)
     cv2.imshow('image', image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
 
 def add_random_augmentation(image):
     row, col = image_dimensions[0], image_dimensions[1]
@@ -42,6 +39,23 @@ def add_random_augmentation(image):
     #display_image(image)
     return image
 
+def add_augmentation(image, rotation_angle=0, flip_horizontal=False, flip_vertical=False, gaussian=True, zoom=False):
+    row, col = image_dimensions[0], image_dimensions[1]
+    if gaussian:
+        gauss = np.random.random((row, col, 1)).astype(np.float32)
+        image = cv2.addWeighted(image, 0.75, 0.25 * gauss, 0.25, 0)
+    m = cv2.getRotationMatrix2D((col / 2, row / 2), rotation_angle, 1)
+    image = cv2.warpAffine(image, m, (col, row))
+    if zoom:
+        zoom_factor_x = 1+(np.random.random()/2)
+        zoom_factor_y = 1+(np.random.random()/2)
+        image = cv2.resize(image,image_dimensions, fx=zoom_factor_x, fy=zoom_factor_y, interpolation=0)
+    if flip_horizontal:
+        image = cv2.flip(image, 0)
+    if flip_vertical:
+        image = cv2.flip(image, 1)
+    #display_image(image)
+    return image
 
 def read_image_file(filename):
     dicom_file = dicom.read_file(filename)
@@ -50,7 +64,6 @@ def read_image_file(filename):
     image = cv2.resize(image, image_dimensions)
     image = np.expand_dims(image, axis=-1)
     return image
-
 
 def read_csv_file(filenames):
     patients = []
@@ -77,23 +90,51 @@ def read_csv_file(filenames):
     return patients
 
 
+def write_image(writer, image, patient):
+    image = image.tobytes()
+    label = patient[1]
+    subtlety = patient[2]
+    density = patient[3]
+    example = tf.train.Example(features=tf.train.Features(feature={
+        'image': _bytes_feature(image),
+        'label': _int64_feature(label),
+        'subtlety': _int64_feature(subtlety),
+        'density': _int64_feature(density)
+    }))
+    writer.write(example.SerializeToString())
+
+
 def create_train_val_database(patients_data, val_patients_data):
     writer = tf.python_io.TFRecordWriter(
         "../Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
-    for j in range(10):
-        for i in range(len(patients_data)):
-            image = read_image_file("../Data/DOI/"+str(patients_data[i][0]))
-            image = add_random_augmentation(image).tobytes()
-            label = patients_data[i][1]
-            subtlety = patients_data[i][2]
-            density = patients_data[i][3]
-            example = tf.train.Example(features=tf.train.Features(feature={
-                'image': _bytes_feature(image),
-                'label': _int64_feature(label),
-                'subtlety': _int64_feature(subtlety),
-                'density': _int64_feature(density)
-            }))
-            writer.write(example.SerializeToString())
+    for i in range(len(patients_data)):
+        patient = patients_data[i]
+        image = read_image_file("../Data/DOI/"+str(patients_data[i][0]))
+        write_image(writer, image, patient)
+        image1 = add_augmentation(image, rotation_angle=0, flip_horizontal=True, flip_vertical=False,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
+        image1 = add_augmentation(image, rotation_angle=0, flip_horizontal=False, flip_vertical=True,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
+        image1 = add_augmentation(image, rotation_angle=0, flip_horizontal=True, flip_vertical=True,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
+        image1 = add_augmentation(image, rotation_angle=90, flip_horizontal=True, flip_vertical=False,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
+        image1 = add_augmentation(image, rotation_angle=90, flip_horizontal=False, flip_vertical=True,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
+        image1 = add_augmentation(image, rotation_angle=270, flip_horizontal=False, flip_vertical=False,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
+        image1 = add_augmentation(image, rotation_angle=270, flip_horizontal=True, flip_vertical=False,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
+        image1 = add_augmentation(image, rotation_angle=270, flip_horizontal=False, flip_vertical=True,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
     writer.close()
     writer = tf.python_io.TFRecordWriter(
         "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")

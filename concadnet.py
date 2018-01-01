@@ -2,7 +2,7 @@
 Runs on Calc and Mass Data
 '''
 import tensorflow as tf
-from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
+from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected, batch_norm
 from sklearn.metrics import confusion_matrix, roc_auc_score
 import time
 
@@ -10,14 +10,13 @@ model_version = 4
 run_number = 1
 batch_size = 400
 val_batch_size = 400
-learning_rate = 0.0003
+learning_rate = 0.001
 num_epochs = 50
 
 image_dimensions = (100, 100)
 train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
 val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
 test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
-
 
 def print_progress(batch, auc, loss, val_auc, val_loss, images_per_second):
     print("Batch: {}, Training AUC: {:.2f} %, Training Loss: {:.4f}, Validation AUC: {:.2f} %, Validation "
@@ -28,42 +27,37 @@ def print_progress(batch, auc, loss, val_auc, val_loss, images_per_second):
 with tf.device("/GPU:0"):
     def convnet(x, s, d, keep_prob, reuse):
         with tf.variable_scope('ConvNet', reuse=reuse):
-            x = 5 * (x / tf.reduce_max(tf.reduce_max(x)))
+            x = (x / tf.reduce_max(tf.reduce_max(x)))
             conv = conv2d(x, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv1 = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
-
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv1 = max_pool2d(conv, (3, 3), (2, 2))
             conv = conv2d(x, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv2 = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
-
+            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv, (3, 3), (2, 2))
             concat = tf.concat([conv1, conv2], axis=3)
-            concat = max_pool2d(concat, (3, 3), (2, 2))
 
             conv = conv2d(concat, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv1 = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
-
+            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv1 = max_pool2d(conv, (3, 3), (2, 2))
             conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv2 = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
-
+            conv = conv2d(conv, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv, (3, 3), (2, 2))
             concat = tf.concat([conv1, conv2], axis=3)
-            concat = max_pool2d(concat, (3, 3), (2, 2))
 
             conv = conv2d(concat, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, (3, 3), stride=1, activation_fn=tf.nn.leaky_relu)
-
-            conv = flatten(conv)
+            conv1 = max_pool2d(conv, (3, 3), (2, 2))
+            conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
+            conv2 = max_pool2d(conv, (3, 3), (2, 2))
+            concat = tf.concat([conv1, conv2], axis=3)
+            print(concat)
+            conv = flatten(concat)
             conv = fully_connected(conv, 256, activation_fn=None)
             conv = dropout(conv, keep_prob)
-            conv1 = fully_connected(flatten(s), 16, activation_fn=None)
-            conv2 = fully_connected(flatten(d), 16, activation_fn=None)
-
-            conv = tf.concat([conv, conv1, conv2], axis=1)
-
-            conv = fully_connected(conv, 64, activation_fn=None)
             conv = fully_connected(conv, 1, activation_fn=None)
         return conv
 
@@ -85,7 +79,7 @@ with tf.device("/cpu:0"):
     dataset = tf.data.TFRecordDataset(train_dataset_file)
     dataset = dataset.map(parser_function)
     dataset = dataset.repeat(20)
-    dataset = dataset.shuffle(batch_size*2)
+    dataset = dataset.shuffle(batch_size*9)
     dataset = dataset.batch(batch_size)
     iterator = dataset.make_initializable_iterator()
 
@@ -93,7 +87,7 @@ with tf.device("/cpu:0"):
     val_dataset = val_dataset.map(parser_function)
     val_dataset = val_dataset.repeat(1)
     val_dataset = val_dataset.shuffle(val_batch_size)
-    val_dataset = val_dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    val_dataset = val_dataset.batch(batch_size)
     val_iterator = val_dataset.make_initializable_iterator()
 
 with tf.Session() as sess:
@@ -105,7 +99,7 @@ with tf.Session() as sess:
 
     logits = convnet(x, s, d, keep_prob, reuse=False)
     val_logits = convnet(x, s, d, keep_prob, reuse=True)
-    make_sense_logits = tf.round(tf.sigmoid(val_logits))
+    make_sense_logits = tf.sigmoid(val_logits)
 
     loss_op = tf.losses.sigmoid_cross_entropy(y, logits)
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
@@ -131,7 +125,7 @@ with tf.Session() as sess:
                                                                                          y: labels,
                                                                                          s: su,
                                                                                          d: de,
-                                                                                         keep_prob: 0.9})
+                                                                                         keep_prob: 0.8})
             batch_loss += loss
             batch_auc += roc_auc_score(labels, preds)
             num_images += len(labels)
