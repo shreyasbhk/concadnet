@@ -6,10 +6,11 @@ from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, full
 from sklearn.metrics import confusion_matrix, roc_auc_score
 import time
 
-model_version = 4
+
+model_version = 5
 run_number = 1
-batch_size = 400
-val_batch_size = 400
+batch_size = 450
+val_batch_size = 800
 learning_rate = 0.001
 num_epochs = 50
 
@@ -24,7 +25,36 @@ def print_progress(batch, auc, loss, val_auc, val_loss, images_per_second):
                                                            images_per_second))
 
 
-with tf.device("/GPU:0"):
+with tf.device("/cpu:0"):
+    def parser_function(example_proto):
+        features = {
+            "image": tf.FixedLenFeature((), tf.string, default_value=""),
+            "label": tf.FixedLenFeature((), tf.int64),
+            "subtlety": tf.FixedLenFeature((), tf.int64),
+            "density": tf.FixedLenFeature((), tf.int64)
+        }
+        parsed_features = tf.parse_single_example(example_proto, features)
+        image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.float32),
+                           [image_dimensions[0], image_dimensions[1], 1])
+        label = tf.reshape(tf.cast(parsed_features["label"], tf.int32), [1])
+        subtlety = tf.reshape(tf.cast(parsed_features["subtlety"], tf.float32), [1])
+        density = tf.reshape(tf.cast(parsed_features["density"], tf.float32), [1])
+        return image, label, subtlety, density
+    dataset = tf.data.TFRecordDataset(train_dataset_file)
+    dataset = dataset.map(parser_function)
+    dataset = dataset.repeat(20)
+    dataset = dataset.shuffle(batch_size*4)
+    dataset = dataset.batch(batch_size)
+    iterator = dataset.make_initializable_iterator()
+
+    val_dataset = tf.data.TFRecordDataset(test_dataset_file)
+    val_dataset = val_dataset.map(parser_function)
+    val_dataset = val_dataset.repeat(1)
+    #val_dataset = val_dataset.shuffle(val_batch_size)
+    val_dataset = val_dataset.batch(val_batch_size)
+    val_iterator = val_dataset.make_initializable_iterator()
+
+with tf.device("/gpu:0"):
     def convnet(x, s, d, keep_prob, reuse):
         with tf.variable_scope('ConvNet', reuse=reuse):
             x = (x / tf.reduce_max(tf.reduce_max(x)))
@@ -56,45 +86,22 @@ with tf.device("/GPU:0"):
             concat = tf.concat([conv1, conv2], axis=3)
             print(concat)
             conv = flatten(concat)
-            conv = fully_connected(conv, 256, activation_fn=None)
+            conv = fully_connected(conv, 2048, activation_fn=None)
             conv = dropout(conv, keep_prob)
+            conv = fully_connected(conv, 512, activation_fn=None)
+            conv = dropout(conv, keep_prob)
+            conv = fully_connected(conv, 32, activation_fn=None)
+            conv = dropout(conv, keep_prob)
+            #conv = tf.concat([s, d, conv], axis=1)
             conv = fully_connected(conv, 1, activation_fn=None)
         return conv
 
-with tf.device("/cpu:0"):
-    def parser_function(example_proto):
-        features = {
-            "image": tf.FixedLenFeature((), tf.string, default_value=""),
-            "label": tf.FixedLenFeature((), tf.int64),
-            "subtlety": tf.FixedLenFeature((), tf.int64),
-            "density": tf.FixedLenFeature((), tf.int64)
-        }
-        parsed_features = tf.parse_single_example(example_proto, features)
-        image = tf.reshape(tf.decode_raw(parsed_features["image"], tf.float32),
-                           [image_dimensions[0], image_dimensions[1], 1])
-        label = tf.reshape(tf.cast(parsed_features["label"], tf.int32), [1])
-        subtlety = tf.reshape(tf.cast(tf.one_hot(parsed_features["subtlety"], depth=5), tf.float32), [5])
-        density = tf.reshape(tf.cast(tf.one_hot(parsed_features["density"], depth=4), tf.float32), [4])
-        return image, label, subtlety, density
-    dataset = tf.data.TFRecordDataset(train_dataset_file)
-    dataset = dataset.map(parser_function)
-    dataset = dataset.repeat(20)
-    dataset = dataset.shuffle(batch_size*9)
-    dataset = dataset.batch(batch_size)
-    iterator = dataset.make_initializable_iterator()
-
-    val_dataset = tf.data.TFRecordDataset(val_dataset_file)
-    val_dataset = val_dataset.map(parser_function)
-    val_dataset = val_dataset.repeat(1)
-    val_dataset = val_dataset.shuffle(val_batch_size)
-    val_dataset = val_dataset.batch(batch_size)
-    val_iterator = val_dataset.make_initializable_iterator()
 
 with tf.Session() as sess:
     x = tf.placeholder(tf.float32, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
     y = tf.placeholder(tf.int32, shape=[None, 1], name="label")
-    s = tf.placeholder(tf.float32, shape=[None, 5], name="subtlety")
-    d = tf.placeholder(tf.float32, shape=[None, 4], name="density")
+    s = tf.placeholder(tf.float32, shape=[None, 1], name="subtlety")
+    d = tf.placeholder(tf.float32, shape=[None, 1], name="density")
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
     logits = convnet(x, s, d, keep_prob, reuse=False)
@@ -130,7 +137,7 @@ with tf.Session() as sess:
             batch_auc += roc_auc_score(labels, preds)
             num_images += len(labels)
 
-            if batch%10==0 and batch!=0:
+            if batch%1==0 and batch!=0:
                 sess.run(val_iterator.initializer)
                 val_batch = -1
                 val_loss = 0
@@ -149,19 +156,21 @@ with tf.Session() as sess:
                         val_loss += loss
                         val_auc += roc_auc_score(val_labels, preds)
                         num_images += len(val_labels)
+                        #print(len(val_labels))
                     except tf.errors.OutOfRangeError:
                         print_progress(batch, batch_auc/batch_number_progress, batch_loss/batch_number_progress, val_auc/val_batch,
                                        val_loss/val_batch, num_images/(time.time()-last_time))
                         num_images = 0
                         last_time = time.time()
                         break
-                _ = saver.save(sess, save_path=str("../Models/Breast_Cancer/model-" + str(model_version)),
-                               global_step=batch)
-                if (val_loss / val_batch) > (2 * batch_loss / batch_number_progress):
+
+                if (val_loss / val_batch) > (2 * batch_loss / batch_number_progress) and batch>100:
                     break
                 batch_auc = 0
                 batch_loss = 0
                 batch_number_progress = 0
-
+            if batch%20==0 and batch!=0:
+                _ = saver.save(sess, save_path=str("../Models/Breast_Cancer/model-" + str(model_version)),
+                               global_step=batch)
         except tf.errors.OutOfRangeError:
             break

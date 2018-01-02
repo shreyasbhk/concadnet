@@ -1,18 +1,30 @@
 '''
 Runs on Calc and Mass Data
-0.71126 AUC, Model Num 6
 '''
 import tensorflow as tf
-from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
+from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected, batch_norm
 from sklearn.metrics import confusion_matrix, roc_auc_score
-import os
+import time
+from tensorflow.contrib.eager.python import tfe
+
+tfe.enable_eager_execution()
 
 model_version = 4
-batch_size = 800
+run_number = 1
+batch_size = 400
+val_batch_size = 400
+learning_rate = 0.001
+num_epochs = 50
 
-num_epochs = 2000
 image_dimensions = (100, 100)
+train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
 test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+
+def print_progress(batch, auc, loss, val_auc, val_loss, images_per_second):
+    print("Batch: {}, Training AUC: {:.2f} %, Training Loss: {:.4f}, Validation AUC: {:.2f} %, Validation "
+          "Loss: {:.4f}, Images per second: {:.2f} img/sec".format(batch, auc*100, loss, val_auc*100, val_loss,
+                                                           images_per_second))
 
 
 with tf.device("/GPU:0"):
@@ -45,7 +57,7 @@ with tf.device("/GPU:0"):
             conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv2 = max_pool2d(conv, (3, 3), (2, 2))
             concat = tf.concat([conv1, conv2], axis=3)
-            #print(concat)
+            print(concat)
             conv = flatten(concat)
             conv = fully_connected(conv, 256, activation_fn=None)
             conv = dropout(conv, keep_prob)
@@ -67,59 +79,20 @@ with tf.device("/cpu:0"):
         subtlety = tf.reshape(tf.cast(tf.one_hot(parsed_features["subtlety"], depth=5), tf.float32), [5])
         density = tf.reshape(tf.cast(tf.one_hot(parsed_features["density"], depth=4), tf.float32), [4])
         return image, label, subtlety, density
-    dataset = tf.data.TFRecordDataset(test_dataset_file)
+    dataset = tf.data.TFRecordDataset(train_dataset_file)
     dataset = dataset.map(parser_function)
-    dataset = dataset.repeat(1)
+    dataset = dataset.repeat(20)
+    dataset = dataset.shuffle(batch_size*9)
     dataset = dataset.batch(batch_size)
     iterator = dataset.make_initializable_iterator()
 
-def test_model(epoch_number):
-    with tf.Session() as sess:
-        x = tf.placeholder(tf.float32, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
-        y = tf.placeholder(tf.int32, shape=[None, 1], name="label")
-        s = tf.placeholder(tf.float32, shape=[None, 5], name="subtlety")
-        d = tf.placeholder(tf.float32, shape=[None, 4], name="density")
-        keep_prob = tf.placeholder(tf.float32, name='keep_prob')
+    val_dataset = tf.data.TFRecordDataset(val_dataset_file)
+    val_dataset = val_dataset.map(parser_function)
+    val_dataset = val_dataset.repeat(1)
+    val_dataset = val_dataset.shuffle(val_batch_size)
+    val_dataset = val_dataset.batch(batch_size)
+    val_iterator = val_dataset.make_initializable_iterator()
 
-        test_logits = convnet(x, s, d, keep_prob, reuse=tf.AUTO_REUSE)
-        make_sense_logits = tf.sigmoid(test_logits)
-        auc = tf.metrics.auc(y, make_sense_logits)
+for elements in tfe.Iterator(iterator):
+    print(elements)
 
-        saver = tf.train.Saver()
-        saver.restore(sess, save_path=str("../Models/Breast_Cancer/model-"+str(model_version)+"-"+str(
-            epoch_number)))
-        sess.run(tf.local_variables_initializer())
-        sess.run(iterator.initializer)
-        test_auc = 0
-        test_batch = -1
-        while True:
-            test_batch += 1
-            try:
-                images, labels, su, de = sess.run(iterator.get_next())
-                preds= sess.run(make_sense_logits, feed_dict={x: images,
-                                                              y: labels,
-                                                              s: su,
-                                                              d: de,
-                                                              keep_prob: 1})
-                test_auc += roc_auc_score(labels, preds)
-                #test_auc += preds[0]
-                #print(roc_auc_score(labels, preds))
-                #print(model_num)
-            except tf.errors.OutOfRangeError:
-                return test_auc/test_batch
-
-if __name__ == "__main__":
-    max_accuracy_auc = 0
-    best_model_num = 0
-    for epoch in range(num_epochs):
-        model_num = epoch
-        if os.path.isfile(str("../Models/Breast_Cancer/model-"+str(model_version)+"-"+str(model_num)+".meta")):
-            auc = test_model(model_num)
-            print(auc)
-            if auc > max_accuracy_auc:
-                max_accuracy_auc = auc
-                best_model_num = model_num
-    print("Best Model AUC: ")
-    print(max_accuracy_auc)
-    print("Best Model: ")
-    print(best_model_num)

@@ -185,6 +185,8 @@ def patients_sequencer(filename, training):
             else:
                 patient = patients[random_array[i]]
                 val_patients.append(patient)
+        print(len(train_patients))
+        print(len(val_patients))
         return train_patients, val_patients
     else:
         test_patients = []
