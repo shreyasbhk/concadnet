@@ -59,7 +59,11 @@ def print_progress(batch, auc, loss, val_auc, val_loss, images_per_second):
 
 
 def display_layer(input, layer):
-    images = (np.mean(input)*(0.5+layer.numpy())).astype(np.uint16)
+    layer_size = layer.numpy().shape[0], layer.numpy().shape[1]
+    input = cv2.resize(np.asarray(input), layer_size)
+    input = np.expand_dims(input, axis=-1)
+    avg_activation = np.mean(layer.numpy())
+    images = ((avg_activation+layer.numpy())/avg_activation).astype(np.uint16)
     num_kernels = layer.numpy().shape[2]
     concat = np.squeeze(input, axis=2).astype(np.uint16)
     for i in range(num_kernels):
@@ -75,14 +79,22 @@ class ConCaDNet(tfe.Network):
     def __init__(self):
         super(ConCaDNet, self).__init__(name='')
         self.l1_1 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_2 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_3 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_4 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.lmp = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME"))
         self.fc1 = self.track_layer(tf.layers.Dense(units=2048))
         self.fc_out = self.track_layer(tf.layers.Dense(units=1))
 
     def call(self, inputs, training=True):
         x = inputs/tf.reduce_max(inputs)
-        conv = self.l1_1(x)
+        l1_1 = self.l1_1(x)
+        l1_2 = self.l1_2(l1_1)
         if not training:
-            display_layer(inputs[0], conv[0])
+            display_layer(inputs[0], l1_2[0])
+        l1_3 = self.l1_3(l1_2)
+        l1_4 = self.l1_4(l1_3)
+        conv = self.lmp(l1_4)
         conv = tf.layers.flatten(conv)
         conv = self.fc1(conv)
         conv = self.fc_out(conv)
