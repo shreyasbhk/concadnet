@@ -63,6 +63,7 @@ def display_layer(input, layer):
     input = cv2.resize(np.asarray(input), layer_size)
     input = np.expand_dims(input, axis=-1)
     avg_activation = np.mean(layer.numpy())
+    print(avg_activation)
     images = ((avg_activation+layer.numpy())/avg_activation).astype(np.uint16)
     num_kernels = layer.numpy().shape[2]
     concat = np.squeeze(input, axis=2).astype(np.uint16)
@@ -78,11 +79,12 @@ class ConCaDNet(tfe.Network):
     """
     def __init__(self):
         super(ConCaDNet, self).__init__(name='')
-        self.l1_1 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
-        self.l1_2 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
-        self.l1_3 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
-        self.l1_4 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
-        self.lmp = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME"))
+        self.l1_1 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", name="Conv_1_1", activation=tf.nn.leaky_relu))
+        self.l1_2 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", name="Conv_1_2", activation=tf.nn.leaky_relu))
+        self.l1_3 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", name="Conv_1_3", activation=tf.nn.leaky_relu))
+        self.l1_4 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", name="Conv_1_4", activation=tf.nn.leaky_relu))
+        self.lmp = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME", name="MaxPool_1"))
+        self.l2_1 = self.track_layer(tf.layers.Conv2D(16, 5, padding="SAME", name="Conv_2_1", activation=tf.nn.leaky_relu))
         self.fc1 = self.track_layer(tf.layers.Dense(units=2048))
         self.fc_out = self.track_layer(tf.layers.Dense(units=1))
 
@@ -94,44 +96,54 @@ class ConCaDNet(tfe.Network):
             display_layer(inputs[0], l1_2[0])
         l1_3 = self.l1_3(l1_2)
         l1_4 = self.l1_4(l1_3)
-        conv = self.lmp(l1_4)
+        l1_mp = self.lmp(l1_4)
+        conv = self.l2_1(l1_mp)
         conv = tf.layers.flatten(conv)
         conv = self.fc1(conv)
         conv = self.fc_out(conv)
         return conv
 
 
-def loss_function(model, x, y, training=True):
-    preds = model(x, training=training)
-    return tf.losses.sigmoid_cross_entropy(y, preds)
-
-
-def evaluate(model):
-    for (x, y, s, d) in tfe.Iterator(val_dataset):
-        loss = loss_function(model, x, y, training=False).numpy()
-        auc = roc_auc_score(y, model(x).numpy())
-        return loss, auc
+def loss(preds, labels):
+    return tf.losses.sigmoid_cross_entropy(labels, preds)
 
 
 def train_one_epoch(model, optimizer, ds, log_interval=None):
     tf.train.get_or_create_global_step()
-    batch_num = 0
-    for (x, y, s, d) in tfe.Iterator(ds):
-        batch_num += 1
-        grads = tfe.implicit_gradients(loss_function)(model, x, y)
-        optimizer.apply_gradients(grads)
-        if batch_num%log_interval==0 and batch_num != 0:
-                print(evaluate(model))
+
+    def model_loss(x, y):
+        preds = model(x, training=True)
+        loss_value = loss(preds, y)
+        return loss_value
+    with tf.device("/GPU:0"):
+        for (batch, (x, y, s, d)) in enumerate(tfe.Iterator(ds)):
+            grads = tfe.implicit_gradients(model_loss)(x, y)
+            optimizer.apply_gradients(grads)
+            if batch%log_interval == 0:
+                evaluate(model)
+
+
+def evaluate(model):
+    def model_loss_auc(x, y):
+        preds = model(x, training=False)
+        loss_value = loss(preds, y)
+        auc = roc_auc_score(y, preds)
+        return loss_value, auc
+    with tf.device("/GPU:0"):
+        for (x, y, s, d) in tfe.Iterator(val_dataset):
+            loss_value, auc = model_loss_auc(x, y)
+            print("Model Loss: {}, Model AUC: {}".format(loss_value.numpy(), auc))
 
 
 def train_model():
     model = ConCaDNet()
     optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+    summary_writer = tf.contrib.summary.create_file_writer("../Models/", flush_millis=10000)
     for epoch in range(num_epochs):
         print("New Epoch")
         with tfe.restore_variables_on_create(tf.train.latest_checkpoint("../Models/")):
             global_step = tf.train.get_or_create_global_step()
-            with tf.device("/GPU:0"):
+            with summary_writer.as_default():
                 train_one_epoch(model, optimizer, dataset, log_interval=10)
         all_variables = (model.variables + optimizer.variables() + [global_step])
         tfe.Saver(all_variables).save("../Models/", global_step=global_step)
