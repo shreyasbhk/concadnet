@@ -59,38 +59,13 @@ def print_progress(batch, auc, loss, val_auc, val_loss, images_per_second):
 
 
 def display_layer(input, layer):
-    # images = (255*layer.numpy()/tf.reduce_max(layer).numpy()).astype(np.uint8)
-    images = (255*layer.numpy()).astype(np.uint16)
-    # print(input.shape)
-    # print(images.shape)
-    # print(np.mean(images[0]))
-    '''num_kernels = layer.numpy().shape[3]
-    print(num_kernels)
-    plt.figure(1, figsize=(20, 20))
-    n_cols = 4
-    n_rows = np.ceil(num_kernels/n_cols)+1
-    col_concat = []
-    concat = []
-    for i in range(num_kernels):
-        plt.subplot(n_rows, n_cols, i+1)
-        plt.title('Filter'+str(i))
-        plt.imshow(images[0, :, :, i], interpolation="nearest", cmap="gray")
-        print(images[0])
-    # print(images[0, :, :, 1].shape)
-    for i in range(n_rows):
-        col_concat.append(np.concatenate((images[0, :, :, i], images[0, :, :, i+1],
-                                          images[0, :, :, i+2], images[0, :, :, i+3]), axis=1))
-    for g in col_concat:
-        np.concatenate(())'''
-    # layer_shape = layer.numpy().shape[0], layer.numpy().shape[1]
+    images = (np.mean(input)*(0.5+layer.numpy())).astype(np.uint16)
     num_kernels = layer.numpy().shape[2]
     concat = np.squeeze(input, axis=2).astype(np.uint16)
-    # cv2.imshow("input", concat)
     for i in range(num_kernels):
         concat = np.concatenate((concat, images[:, :, i]), axis=1)
     cv2.imshow('image', concat)
     cv2.waitKey(2)
-    # cv2.destroyAllWindows()
 
 
 class ConCaDNet(tfe.Network):
@@ -103,24 +78,25 @@ class ConCaDNet(tfe.Network):
         self.fc1 = self.track_layer(tf.layers.Dense(units=2048))
         self.fc_out = self.track_layer(tf.layers.Dense(units=1))
 
-    def call(self, inputs):
+    def call(self, inputs, training=True):
         x = inputs/tf.reduce_max(inputs)
         conv = self.l1_1(x)
-        display_layer(inputs[0], conv[0])
+        if not training:
+            display_layer(inputs[0], conv[0])
         conv = tf.layers.flatten(conv)
         conv = self.fc1(conv)
         conv = self.fc_out(conv)
         return conv
 
 
-def loss_function(model, x, y):
-    preds = model(x)
+def loss_function(model, x, y, training=True):
+    preds = model(x, training=training)
     return tf.losses.sigmoid_cross_entropy(y, preds)
 
 
 def evaluate(model):
     for (x, y, s, d) in tfe.Iterator(val_dataset):
-        loss = loss_function(model, x, y).numpy()
+        loss = loss_function(model, x, y, training=False).numpy()
         auc = roc_auc_score(y, model(x).numpy())
         return loss, auc
 
@@ -144,7 +120,7 @@ def train_model():
         with tfe.restore_variables_on_create(tf.train.latest_checkpoint("../Models/")):
             global_step = tf.train.get_or_create_global_step()
             with tf.device("/GPU:0"):
-                train_one_epoch(model, optimizer, dataset, log_interval=1)
+                train_one_epoch(model, optimizer, dataset, log_interval=10)
         all_variables = (model.variables + optimizer.variables() + [global_step])
         tfe.Saver(all_variables).save("../Models/", global_step=global_step)
         # print(labels)

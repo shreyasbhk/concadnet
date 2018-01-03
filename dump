@@ -1,0 +1,24 @@
+
+
+        self.l2_1 = self.track_layer(tf.layers.Conv2D(16, 5, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l2_2 = self.track_layer(tf.layers.Conv2D(16, 5, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l2_3 = self.track_layer(tf.layers.Conv2D(16, 5, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l2_5 = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME"))
+
+        self.l1_1 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_2 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_3 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_4 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_5 = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME"))
+
+        self.l1_1 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_2 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_3 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_4 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_5 = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME"))
+
+        self.l1_1 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_2 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_3 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_4 = self.track_layer(tf.layers.Conv2D(16, 3, padding="SAME", activation=tf.nn.leaky_relu))
+        self.l1_5 = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME"))
