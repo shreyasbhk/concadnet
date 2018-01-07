@@ -135,30 +135,6 @@ def create_train_val_database(patients_data, val_patients_data):
         image1 = add_augmentation(image, rotation_angle=270, flip_horizontal=False, flip_vertical=True,
                                   gaussian=True, zoom=True)
         write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=45, flip_horizontal=False, flip_vertical=True,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=45, flip_horizontal=True, flip_vertical=False,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=30, flip_horizontal=False, flip_vertical=True,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=30, flip_horizontal=True, flip_vertical=False,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=-45, flip_horizontal=False, flip_vertical=True,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=-45, flip_horizontal=True, flip_vertical=False,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=-30, flip_horizontal=False, flip_vertical=True,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
-        image1 = add_augmentation(image, rotation_angle=-30, flip_horizontal=True, flip_vertical=False,
-                                  gaussian=True, zoom=True)
-        write_image(writer, image1, patient)
     writer.close()
     writer = tf.python_io.TFRecordWriter(
         "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
