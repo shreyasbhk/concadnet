@@ -79,12 +79,18 @@ class ConCaDNet(tfe.Network):
     """
     def __init__(self):
         super(ConCaDNet, self).__init__(name='')
-        self.l1_1 = self.track_layer(tf.layers.Conv2D(8, 3, padding="SAME", name="Conv_1_1", activation=tf.nn.leaky_relu))
-        self.l1_2 = self.track_layer(tf.layers.Conv2D(8, 3, padding="SAME", name="Conv_1_2", activation=tf.nn.leaky_relu))
-        #self.l1_3 = self.track_layer(tf.layers.Conv2D(8, 3, padding="SAME", name="Conv_1_3", activation=tf.nn.leaky_relu))
-        #self.l1_4 = self.track_layer(tf.layers.Conv2D(8, 3, padding="SAME", name="Conv_1_4", activation=tf.nn.leaky_relu))
-        #self.l1_5 = self.track_layer(tf.layers.Conv2D(8, 3, padding="SAME", name="Conv_1_5", activation=tf.nn.leaky_relu))
-        #self.l1_6 = self.track_layer(tf.layers.Conv2D(8, 3, padding="SAME", name="Conv_1_6", activation=tf.nn.leaky_relu))
+        self.l1_1 = self.track_layer(tf.layers.Conv2D(1, 3, padding="SAME", name="Conv_1_1",
+                                                      activation=tf.nn.leaky_relu))
+        self.l1_2 = self.track_layer(tf.layers.Conv2D(1, 3, padding="SAME", name="Conv_1_2",
+                                                      activation=tf.nn.leaky_relu))
+        self.l1_3 = self.track_layer(tf.layers.Conv2D(1, 3, padding="SAME", name="Conv_1_3",
+                                                      activation=tf.nn.leaky_relu))
+        self.l1_4 = self.track_layer(tf.layers.Conv2D(1, 3, padding="SAME", name="Conv_1_4",
+                                                      activation=tf.nn.leaky_relu))
+        self.l1_5 = self.track_layer(tf.layers.Conv2D(1, 3, padding="SAME", name="Conv_1_5",
+                                                      activation=tf.nn.leaky_relu))
+        self.l1_6 = self.track_layer(tf.layers.Conv2D(1, 3, padding="SAME", name="Conv_1_6",
+                                                      activation=tf.nn.leaky_relu))
         self.l1_mp = self.track_layer(tf.layers.MaxPooling2D(3, 2, padding="SAME", name="MaxPool_1"))
         #self.l2_1 = self.track_layer(tf.layers.Conv2D(8, 5, padding="SAME", name="Conv_2_1", activation=tf.nn.leaky_relu))
         #self.l2_2 = self.track_layer(tf.layers.Conv2D(8, 5, padding="SAME", name="Conv_2_2", activation=tf.nn.leaky_relu))
@@ -121,7 +127,11 @@ class ConCaDNet(tfe.Network):
         x = inputs/tf.reduce_max(inputs)
         l1_1 = self.l1_1(x)
         l1_2 = self.l1_2(l1_1)
-        conv = self.l1_mp(l1_2)
+        l1_3 = self.l1_3(l1_2)
+        l1_4 = self.l1_4(l1_3)
+        l1_5 = self.l1_5(l1_4)
+        l1_6 = self.l1_6(l1_5)
+        conv = self.l1_mp(l1_6)
         conv = tf.layers.flatten(conv)
         conv = self.fc1(conv)
         conv = self.fc_out(conv)

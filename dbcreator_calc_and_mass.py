@@ -111,6 +111,9 @@ def create_train_val_database(patients_data, val_patients_data):
         patient = patients_data[i]
         image = read_image_file("../Data/DOI/"+str(patients_data[i][0]))
         write_image(writer, image, patient)
+        image1 = add_augmentation(image, rotation_angle=0, flip_horizontal=False, flip_vertical=False,
+                                  gaussian=True, zoom=True)
+        write_image(writer, image1, patient)
         image1 = add_augmentation(image, rotation_angle=0, flip_horizontal=True, flip_vertical=False,
                                   gaussian=True, zoom=True)
         write_image(writer, image1, patient)

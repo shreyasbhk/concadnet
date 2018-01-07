@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 model_version = 4
-batch_size = 100
+batch_size = 800
 
 num_epochs = 2000
 image_dimensions = (100, 100)
@@ -109,7 +109,7 @@ def test_model(epoch_number):
                 plt.ylim([0.0, 1.05])
                 plt.xlabel('False Positive Rate')
                 plt.ylabel('True Positive Rate')
-                plt.title('Receiver operating characteristic example')
+                plt.title('AUROC of ConCaDNet')
                 plt.legend(loc="lower right")
                 plt.show()
             except tf.errors.OutOfRangeError:
