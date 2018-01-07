@@ -59,45 +59,42 @@ with tf.device("/gpu:0"):
         with tf.variable_scope('ConvNet', reuse=reuse):
             x = x - tf.reduce_min(x)
             x = (x / tf.reduce_max(x))-0.5
-            conv = conv2d(x, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv1 = conv2d(x, 16, 1, stride=1, activation_fn=None)
+            conv = conv2d(conv1, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv1 = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu) - x
-            conv = conv2d(conv1, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv2 = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu) - conv1
-            concat = tf.concat([conv1, conv2], axis=3)
-            concat = max_pool2d(concat, (3, 3), 2, padding="SAME")
-            res = conv2d(concat, 16, 1, stride=1, activation_fn=None)
-            conv = conv2d(concat, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu) - conv1
+            conv = max_pool2d(conv, (3, 3), 2, padding="SAME")
+            conv1 = conv2d(conv, 32, 1, stride=1, activation_fn=None)
+            conv = conv2d(conv1, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu) - conv1
+            conv = max_pool2d(conv, (3, 3), 2, padding="SAME")
+            conv1 = conv2d(conv, 64, 1, stride=1, activation_fn=None)
+            conv = conv2d(conv1, 64, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 64, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 64, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 64, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 64, 3, stride=1, activation_fn=tf.nn.leaky_relu) - conv1
+            conv = max_pool2d(conv, (3, 3), 2, padding="SAME")
+            conv1 = conv2d(conv, 32, 1, stride=1, activation_fn=None)
+            conv = conv2d(conv1, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu)
+            conv = conv2d(conv, 32, 3, stride=1, activation_fn=tf.nn.leaky_relu) - conv1
+            conv = max_pool2d(conv, (3, 3), 2, padding="SAME")
+            conv1 = conv2d(conv, 16, 1, stride=1, activation_fn=None)
+            conv = conv2d(conv1, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv1 = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu) - res
-            conv = conv2d(concat, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv2 = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu) - res
-            concat = tf.concat([conv1, conv2], axis=3)
-            concat = max_pool2d(concat, (3, 3), (2, 2), padding="SAME")
-            res = conv2d(concat, 16, 1, stride=1, activation_fn=None)
-            print(concat)
-            conv = conv2d(concat, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
             conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv1 = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu) - res
-            conv = conv2d(concat, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu)
-            conv2 = conv2d(conv, 16, 5, stride=1, activation_fn=tf.nn.leaky_relu) - res
-            concat = tf.concat([conv1, conv2], axis=3)
-            concat = max_pool2d(concat, (3, 3), (2, 2), padding="SAME")
-            #print(conv)
-            conv = flatten(concat)
+            conv = conv2d(conv, 16, 3, stride=1, activation_fn=tf.nn.leaky_relu) - conv1
+
+            conv = flatten(conv)
             #conv = fully_connected(conv, 10, activation_fn=None)
             conv = fully_connected(conv, 1, activation_fn=None)
         return conv
