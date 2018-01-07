@@ -7,7 +7,7 @@ from sklearn.metrics import confusion_matrix, roc_auc_score
 import time
 
 
-model_version = 5
+model_version = 9
 run_number = 1
 batch_size = 450
 val_batch_size = 800
@@ -84,15 +84,8 @@ with tf.device("/gpu:0"):
             conv = conv2d(concat, 16, (5, 5), stride=1, activation_fn=tf.nn.leaky_relu)
             conv2 = max_pool2d(conv, (3, 3), (2, 2))
             concat = tf.concat([conv1, conv2], axis=3)
-            print(concat)
             conv = flatten(concat)
             conv = fully_connected(conv, 2048, activation_fn=None)
-            conv = dropout(conv, keep_prob)
-            conv = fully_connected(conv, 512, activation_fn=None)
-            conv = dropout(conv, keep_prob)
-            conv = fully_connected(conv, 32, activation_fn=None)
-            conv = dropout(conv, keep_prob)
-            #conv = tf.concat([s, d, conv], axis=1)
             conv = fully_connected(conv, 1, activation_fn=None)
         return conv
 
