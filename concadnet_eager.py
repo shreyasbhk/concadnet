@@ -182,13 +182,17 @@ def train_one_epoch(model, optimizer, ds, epoch, log_interval=None):
             grads = tfe.implicit_gradients(model_loss)(x, y)
             optimizer.apply_gradients(grads)
             if batch%log_interval == 0:
-                evaluate(model, model_loss_auc(x, y))
+                evaluate(model, model_loss_auc(x, y), epoch, batch)
                 all_variables = (model.variables + optimizer.variables())
                 saver = tfe.Saver(all_variables)
                 _ = saver.save("../Models/"+str(model_version)+"/"+str(run_number)+"/"+str(epoch)+"-"+str(batch))
 
+def save_training_progress(vars):
+    with open("../Models/"+str(model_version)+ "/"+str(run_number)+"/Training_Progress.txt", "a+") as f:
+        f.write(vars+"\n")
 
-def evaluate(model, train_values):
+
+def evaluate(model, train_values, epoch, batch):
     def model_loss_auc(x, y):
         preds = model(x, training=False)
         loss_value = loss(preds, y)
@@ -203,6 +207,8 @@ def evaluate(model, train_values):
             tl, ta = model_loss_auc(x, y)
         print("Training Loss: {:.5f}, Training AUC: {:.2f}, Validation Loss: {:.5f}, Validation AUC: {:.2f}, "
               "Testing Loss: {:.5f}, Testing AUC: {:.2f}".format(trl, tra*100, vl, va*100, tl, ta*100))
+        save_training_progress("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, Validation Loss: {:.5f}, Validation AUC: {:.2f}, "
+              "Testing Loss: {:.5f}, Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
 
 
 def train_model():
