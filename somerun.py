@@ -4,7 +4,7 @@ Runs on Calc and Mass Data
 '''
 import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
-from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve, auc
+from sklearn.metrics import confusion_matrix, roc_auc_score, roc_curve, average_precision_score, precision_recall_curve
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -97,9 +97,10 @@ def test_model(epoch_number):
                                                                          y: labels,
                                                                          keep_prob: 1})
                 test_auc += roc_auc_score(labels, preds)
-                #print(confusion_matrix(labels, np.round(preds)))
+                print(average_precision_score(labels, preds))
+                print(precision_recall_curve(labels, preds, pos_label=1))
                 #print(roc_curve(labels, preds))
-                fpr, tpr, _ = roc_curve(labels, preds)
+                '''fpr, tpr, _ = roc_curve(labels, preds)
                 plt.figure()
                 lw = 2
                 plt.plot(fpr, tpr, color='darkorange',
@@ -109,9 +110,9 @@ def test_model(epoch_number):
                 plt.ylim([0.0, 1.05])
                 plt.xlabel('False Positive Rate')
                 plt.ylabel('True Positive Rate')
-                plt.title('AUROC of ConCaDNet')
+                plt.title('ROC Curve of ConCaDNet')
                 plt.legend(loc="lower right")
-                plt.show()
+                plt.show()'''
             except tf.errors.OutOfRangeError:
                 return test_auc/test_batch
 
