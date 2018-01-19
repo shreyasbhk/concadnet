@@ -11,7 +11,7 @@ from tensorflow.contrib.eager.python import tfe
 tfe.enable_eager_execution()
 
 model_version = 11
-run_number = 3
+run_number = 4
 
 batch_size = 100
 val_batch_size = 400
@@ -68,10 +68,19 @@ def display_layer(input, layer, window_name):
     max_activation = np.max(layer)
     images = (65535*(layer/max_activation)).numpy().astype(np.uint16)
     num_kernels = layer.numpy().shape[2]
-    concat = np.squeeze(input, axis=2).astype(np.uint16)
-    for i in range(num_kernels):
-        concat = np.concatenate((concat, images[:, :, i]), axis=1)
-    cv2.imshow(window_name, concat)
+    rows = 16
+    cols = int(num_kernels/16)
+    row_concats = []
+    for i in range(cols):
+        temp_concat = np.squeeze(input, axis=2).astype(np.uint16)
+        for j in range(rows):
+            temp_concat = np.concatenate((temp_concat, images[:, :, (i*16+j)]), axis=1)
+        row_concats.append(temp_concat)
+    final_concat = row_concats[0]
+    for (i, rc) in enumerate(row_concats):
+        if i !=0:
+            final_concat = np.concatenate((final_concat, rc), axis=0)
+    cv2.imshow(window_name, final_concat)
     cv2.waitKey(2)
 
 
