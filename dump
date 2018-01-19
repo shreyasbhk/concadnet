@@ -104,3 +104,6 @@
 
 
         self.fc1 = self.track_layer(tf.layers.Dense(units=256))
+
+        , conv3, conv4, conv5, conv6, conv8, conv9, conv10,
+                                     conv11, conv12, conv13, conv14, conv15, conv16, conv17, conv

@@ -33,9 +33,8 @@ def add_random_augmentation(image):
     rotation_angle = np.random.choice(4, 1)[0]*90
     m = cv2.getRotationMatrix2D((col / 2, row / 2), rotation_angle, 1)
     image = cv2.warpAffine(image, m, (col, row))
-    zoom_factor_x = 1+np.random.random()
-    zoom_factor_y = 1+np.random.random()
-    image = cv2.resize(image,image_dimensions, fx=zoom_factor_x, fy=zoom_factor_y, interpolation=0)
+    zoom_factor = 1+(np.random.random()*0.5)
+    image = cv2.resize(image,image_dimensions, fx=zoom_factor, fy=zoom_factor, interpolation=0)
     #display_image(image)
     return image
 
@@ -106,7 +105,7 @@ def write_image(writer, image, patient):
 
 def create_train_val_database(patients_data, val_patients_data):
     writer = tf.python_io.TFRecordWriter(
-        "../Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+".tfrecords")
+        "../Data/train_"+str(image_dimensions[0])+"x"+str(image_dimensions[1])+"-m-only.tfrecords")
     for i in range(len(patients_data)):
         patient = patients_data[i]
         image = read_image_file("../Data/DOI/"+str(patients_data[i][0]))
@@ -140,7 +139,7 @@ def create_train_val_database(patients_data, val_patients_data):
         write_image(writer, image1, patient)
     writer.close()
     writer = tf.python_io.TFRecordWriter(
-        "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
+        "../Data/val_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords")
     for i in range(len(val_patients_data)):
         image = read_image_file("../Data/DOI/"+str(val_patients_data[i][0])).tobytes()
         label = val_patients_data[i][1]
@@ -158,7 +157,7 @@ def create_train_val_database(patients_data, val_patients_data):
 
 def create_test_database(patients_data):
     writer = tf.python_io.TFRecordWriter(
-        "../Data/test_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords")
+        "../Data/test_" + str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords")
     for i in range(len(patients_data)):
         image = read_image_file("../Data/DOI/"+str(patients_data[i][0])).tobytes()
         label = patients_data[i][1]
@@ -202,7 +201,11 @@ def patients_sequencer(filename, training):
 
 
 if __name__ == '__main__':
-    train_patients, val_patients = patients_sequencer([training_csv_file_m, training_csv_file_c], training=True)
+    '''train_patients, val_patients = patients_sequencer([training_csv_file_m, training_csv_file_c], training=True)
     test_patients = patients_sequencer([testing_csv_file_m, testing_csv_file_c], training=False)
+    create_train_val_database(train_patients, val_patients)
+    create_test_database(test_patients)'''
+    train_patients, val_patients = patients_sequencer([training_csv_file_m], training=True)
+    test_patients = patients_sequencer([testing_csv_file_m], training=False)
     create_train_val_database(train_patients, val_patients)
     create_test_database(test_patients)

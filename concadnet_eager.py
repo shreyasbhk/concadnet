@@ -11,17 +11,17 @@ from tensorflow.contrib.eager.python import tfe
 tfe.enable_eager_execution()
 
 model_version = 11
-run_number = 1
+run_number = 3
 
-batch_size = 50
-val_batch_size = 700
+batch_size = 100
+val_batch_size = 400
 learning_rate = 0.0003
-num_epochs = 100
+num_epochs = 50
 
 image_dimensions = (100, 100)
-train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
-val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
-test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
+val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
+test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
 
 
 def initialize_datasets():
@@ -126,30 +126,31 @@ class ConCaDNet(tfe.Network):
         self.fc_out = self.track_layer(tf.layers.Dense(units=1))
 
     def display_layers(self, inputs, layers):
+        image_num = 1+int(np.round(np.random.random()*150))
         for (i, layer) in enumerate(layers):
-            display_layer(inputs[1], layer[1], window_name="Layer "+str(i))
+            display_layer(inputs[image_num], layer[image_num], window_name="Layer "+str(i))
 
-    def call(self, inputs, training=True):
+    def call(self, inputs, display_image=True):
         x = ((inputs-tf.reduce_min(inputs))/tf.reduce_max(inputs))-0.5
-        conv = self.l1_1(x)
-        conv = self.l1_2(conv)
-        conv = self.l1_mp(conv)
-        conv = self.l2_1(conv)
-        conv = self.l2_2(conv)
-        conv = self.l2_mp(conv)
-        conv = self.l3_1(conv)
-        conv = self.l3_2(conv)
-        conv = self.l3_3(conv)
-        conv = self.l3_mp(conv)
-        conv = self.l4_1(conv)
-        conv = self.l4_2(conv)
-        conv = self.l4_3(conv)
-        conv = self.l4_mp(conv)
-        conv = self.l5_1(conv)
-        conv = self.l5_2(conv)
-        conv = self.l5_3(conv)
-        conv = self.l5_mp(conv)
-        #self.display_layers(inputs, [conv]) if not training else None
+        conv1 = self.l1_1(x)
+        conv2 = self.l1_2(conv1)
+        conv3 = self.l1_mp(conv2)
+        conv4 = self.l2_1(conv3)
+        conv5 = self.l2_2(conv4)
+        conv6 = self.l2_mp(conv5)
+        conv7 = self.l3_1(conv6)
+        conv8 = self.l3_2(conv7)
+        conv9 = self.l3_3(conv8)
+        conv10 = self.l3_mp(conv9)
+        conv11 = self.l4_1(conv10)
+        conv12 = self.l4_2(conv11)
+        conv13 = self.l4_3(conv12)
+        conv14 = self.l4_mp(conv13)
+        conv15 = self.l5_1(conv14)
+        conv16 = self.l5_2(conv15)
+        conv17 = self.l5_3(conv16)
+        conv = self.l5_mp(conv17)
+        self.display_layers(inputs, [conv1, conv2]) if display_image else None
         conv = tf.layers.flatten(conv)
         #conv = self.fc_1(conv)
         #conv = self.fc_2(conv)
@@ -165,13 +166,13 @@ def loss(preds, labels):
 def train_one_epoch(model, optimizer, epoch, log_interval=None):
     tf.train.get_or_create_global_step()
     def model_loss_auc(x, y):
-        preds = model(x, training=True)
+        preds = model(x, display_image=False)
         loss_value = loss(preds, y)
         auc = roc_auc_score(y, preds)
         return loss_value.numpy(), auc
 
     def model_loss(x, y):
-        preds = model(x, training=True)
+        preds = model(x, display_image=False)
         loss_value = loss(preds, y)
         return loss_value
 
@@ -180,8 +181,8 @@ def train_one_epoch(model, optimizer, epoch, log_interval=None):
         for (batch, (x, y, s, d)) in enumerate(tfe.Iterator(tr_ds)):
             grads = tfe.implicit_gradients(model_loss)(x, y)
             optimizer.apply_gradients(grads)
-            evaluate(model, model_loss_auc(x, y), [v_ds, t_ds], epoch, batch)
             if batch%log_interval == 0:
+                evaluate(model, model_loss_auc(x, y), [v_ds, t_ds], epoch, batch)
                 global_step = tf.train.get_or_create_global_step()
                 all_variables = (model.variables + optimizer.variables() + [global_step])
                 saver = tfe.Saver(all_variables)
@@ -194,8 +195,8 @@ def save_training_progress(vars):
 
 
 def evaluate(model, train_values, datasets, epoch, batch):
-    def model_loss_auc(x, y):
-        preds = model(x, training=False)
+    def model_loss_auc(x, y, display_image):
+        preds = model(x, display_image=display_image)
         loss_value = loss(preds, y)
         auc = roc_auc_score(y, preds)
         return loss_value.numpy(), auc
@@ -205,10 +206,10 @@ def evaluate(model, train_values, datasets, epoch, batch):
         test_dataset = datasets[1]
         val = tfe.Iterator(val_dataset)
         x, y, s, d = val.next()
-        vl, va = model_loss_auc(x, y)
+        vl, va = model_loss_auc(x, y, display_image=False)
         test = tfe.Iterator(test_dataset)
         x, y, s, d = test.next()
-        tl, ta = model_loss_auc(x, y)
+        tl, ta = model_loss_auc(x, y, display_image=True)
     print("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, " 
           "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, " 
           "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
