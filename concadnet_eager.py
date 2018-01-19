@@ -11,9 +11,9 @@ from tensorflow.contrib.eager.python import tfe
 tfe.enable_eager_execution()
 
 model_version = 11
-run_number = 4
+run_number = 5
 
-batch_size = 100
+batch_size = 50
 val_batch_size = 400
 learning_rate = 0.0003
 num_epochs = 50
@@ -161,7 +161,7 @@ class ConCaDNet(tfe.Network):
         conv = self.l5_mp(conv17)
         self.display_layers(inputs, [conv1, conv2]) if display_image else None
         conv = tf.layers.flatten(conv)
-        #conv = self.fc_1(conv)
+        conv = self.fc_1(conv)
         #conv = self.fc_2(conv)
         conv = self.fc_out(conv)
 
@@ -238,7 +238,7 @@ def train_model():
         print("Epoch #"+str(epoch))
         with tfe.restore_variables_on_create(tf.train.latest_checkpoint(directory)):
             with summary_writer.as_default():
-                train_one_epoch(model, optimizer, epoch, log_interval=5)
+                train_one_epoch(model, optimizer, epoch, log_interval=20)
 
 
 def test_model():
