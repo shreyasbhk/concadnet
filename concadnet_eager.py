@@ -10,11 +10,11 @@ from tensorflow.contrib.eager.python import tfe
 
 tfe.enable_eager_execution()
 
-model_version = 10
-run_number = 11
+model_version = 11
+run_number = 1
 
-batch_size = 500
-val_batch_size = 800
+batch_size = 50
+val_batch_size = 700
 learning_rate = 0.0003
 num_epochs = 100
 
@@ -81,14 +81,48 @@ class ConCaDNet(tfe.Network):
     """
     def __init__(self):
         super(ConCaDNet, self).__init__(name='')
-        self.l1_1 = self.track_layer(tf.layers.Conv2D(8, 5, strides=5, padding="SAME", name="Conv_1_1",
+        self.l1_1 = self.track_layer(tf.layers.Conv2D(64, 3, strides=1, padding="SAME", name="Conv_1_1",
                                                       activation=tf.nn.leaky_relu))
-        self.l1_2 = self.track_layer(tf.layers.Conv2D(8, 5, strides=5, padding="SAME", name="Conv_1_2",
+        self.l1_2 = self.track_layer(tf.layers.Conv2D(64, 3, strides=1, padding="SAME", name="Conv_1_2",
                                                       activation=tf.nn.leaky_relu))
-        self.l1_3 = self.track_layer(tf.layers.Conv2D(8, 5, strides=5, padding="SAME", name="Conv_1_3",
+        self.l1_mp = self.track_layer(tf.layers.MaxPooling2D(2, strides=2, padding="SAME"))
+
+
+        self.l2_1 = self.track_layer(tf.layers.Conv2D(128, 3, strides=1, padding="SAME", name="Conv_2_1",
                                                       activation=tf.nn.leaky_relu))
-        self.l1_4 = self.track_layer(tf.layers.Conv2D(8, 5, strides=5, padding="SAME", name="Conv_1_4",
+        self.l2_2 = self.track_layer(tf.layers.Conv2D(128, 3, strides=1, padding="SAME", name="Conv_2_2",
                                                       activation=tf.nn.leaky_relu))
+        self.l2_mp = self.track_layer(tf.layers.MaxPooling2D(2, strides=2, padding="SAME"))
+
+
+        self.l3_1 = self.track_layer(tf.layers.Conv2D(256, 3, strides=1, padding="SAME", name="Conv_3_1",
+                                                      activation=tf.nn.leaky_relu))
+        self.l3_2 = self.track_layer(tf.layers.Conv2D(256, 3, strides=1, padding="SAME", name="Conv_3_2",
+                                                      activation=tf.nn.leaky_relu))
+        self.l3_3 = self.track_layer(tf.layers.Conv2D(256, 3, strides=1, padding="SAME", name="Conv_3_3",
+                                                      activation=tf.nn.leaky_relu))
+        self.l3_mp = self.track_layer(tf.layers.MaxPooling2D(2, strides=2, padding="SAME"))
+
+
+        self.l4_1 = self.track_layer(tf.layers.Conv2D(512, 3, strides=1, padding="SAME", name="Conv_4_1",
+                                                      activation=tf.nn.leaky_relu))
+        self.l4_2 = self.track_layer(tf.layers.Conv2D(512, 3, strides=1, padding="SAME", name="Conv_4_2",
+                                                      activation=tf.nn.leaky_relu))
+        self.l4_3 = self.track_layer(tf.layers.Conv2D(512, 3, strides=1, padding="SAME", name="Conv_4_3",
+                                                      activation=tf.nn.leaky_relu))
+        self.l4_mp = self.track_layer(tf.layers.MaxPooling2D(2, strides=2, padding="SAME"))
+
+
+        self.l5_1 = self.track_layer(tf.layers.Conv2D(512, 3, strides=1, padding="SAME", name="Conv_5_1",
+                                                      activation=tf.nn.leaky_relu))
+        self.l5_2 = self.track_layer(tf.layers.Conv2D(512, 3, strides=1, padding="SAME", name="Conv_5_2",
+                                                      activation=tf.nn.leaky_relu))
+        self.l5_3 = self.track_layer(tf.layers.Conv2D(512, 3, strides=1, padding="SAME", name="Conv_5_3",
+                                                      activation=tf.nn.leaky_relu))
+        self.l5_mp = self.track_layer(tf.layers.MaxPooling2D(2, strides=2, padding="SAME"))
+
+        self.fc_1 = self.track_layer(tf.layers.Dense(units=4096, activation=tf.nn.leaky_relu))
+        self.fc_2 = self.track_layer(tf.layers.Dense(units=4096, activation=tf.nn.leaky_relu))
         self.fc_out = self.track_layer(tf.layers.Dense(units=1))
 
     def display_layers(self, inputs, layers):
@@ -99,10 +133,26 @@ class ConCaDNet(tfe.Network):
         x = ((inputs-tf.reduce_min(inputs))/tf.reduce_max(inputs))-0.5
         conv = self.l1_1(x)
         conv = self.l1_2(conv)
-        conv = self.l1_3(conv)
-        conv = self.l1_3(conv)
+        conv = self.l1_mp(conv)
+        conv = self.l2_1(conv)
+        conv = self.l2_2(conv)
+        conv = self.l2_mp(conv)
+        conv = self.l3_1(conv)
+        conv = self.l3_2(conv)
+        conv = self.l3_3(conv)
+        conv = self.l3_mp(conv)
+        conv = self.l4_1(conv)
+        conv = self.l4_2(conv)
+        conv = self.l4_3(conv)
+        conv = self.l4_mp(conv)
+        conv = self.l5_1(conv)
+        conv = self.l5_2(conv)
+        conv = self.l5_3(conv)
+        conv = self.l5_mp(conv)
         #self.display_layers(inputs, [conv]) if not training else None
         conv = tf.layers.flatten(conv)
+        #conv = self.fc_1(conv)
+        #conv = self.fc_2(conv)
         conv = self.fc_out(conv)
 
         return conv
@@ -127,17 +177,16 @@ def train_one_epoch(model, optimizer, epoch, log_interval=None):
 
     with tf.device("/GPU:0"):
         tr_ds, v_ds, t_ds = initialize_datasets()
-        print("This is weher I'm at yo")
         for (batch, (x, y, s, d)) in enumerate(tfe.Iterator(tr_ds)):
             grads = tfe.implicit_gradients(model_loss)(x, y)
             optimizer.apply_gradients(grads)
             evaluate(model, model_loss_auc(x, y), [v_ds, t_ds], epoch, batch)
-            print(batch)
             if batch%log_interval == 0:
                 global_step = tf.train.get_or_create_global_step()
                 all_variables = (model.variables + optimizer.variables() + [global_step])
                 saver = tfe.Saver(all_variables)
                 _ = saver.save("../Models/"+str(model_version)+"/"+str(run_number)+"/"+str(epoch)+"-"+str(batch))
+
 
 def save_training_progress(vars):
     with open("../Models/"+str(model_version)+ "/"+str(run_number)+"/Training_Progress.txt", "a+") as f:
@@ -154,13 +203,15 @@ def evaluate(model, train_values, datasets, epoch, batch):
         trl, tra = train_values
         val_dataset = datasets[0]
         test_dataset = datasets[1]
-        vl, va, tl, ta = 0, 0, 0, 0
-        for (x, y, s, d) in tfe.Iterator(val_dataset):
-            vl, va = model_loss_auc(x, y)
-        for (x, y, s, d) in tfe.Iterator(test_dataset):
-            tl, ta = model_loss_auc(x, y)
-    print("Training Loss: {:.5f}, Training AUC: {:.2f}, Validation Loss: {:.5f}, Validation AUC: {:.2f}, "
-          "Testing Loss: {:.5f}, Testing AUC: {:.2f}".format(trl, tra*100, vl, va*100, tl, ta*100))
+        val = tfe.Iterator(val_dataset)
+        x, y, s, d = val.next()
+        vl, va = model_loss_auc(x, y)
+        test = tfe.Iterator(test_dataset)
+        x, y, s, d = test.next()
+        tl, ta = model_loss_auc(x, y)
+    print("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, " 
+          "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, " 
+          "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
     save_training_progress("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, "
                            "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, "
                            "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
@@ -178,7 +229,6 @@ def train_model():
         with tfe.restore_variables_on_create(tf.train.latest_checkpoint(directory)):
             with summary_writer.as_default():
                 train_one_epoch(model, optimizer, epoch, log_interval=5)
-
 
 
 def test_model():

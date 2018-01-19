@@ -45,7 +45,7 @@ with tf.device("/cpu:0"):
     dataset = dataset.repeat(20)
     dataset = dataset.shuffle(batch_size*4)
     dataset = dataset.batch(batch_size)
-    iterator = dataset.make_initializable_iterator()
+    train_iterator = dataset.make_initializable_iterator()
 
     val_dataset = tf.data.TFRecordDataset(test_dataset_file)
     val_dataset = val_dataset.map(parser_function)
@@ -55,8 +55,8 @@ with tf.device("/cpu:0"):
     val_iterator = val_dataset.make_initializable_iterator()
 
 with tf.device("/gpu:0"):
-    def convnet(x, s, d, keep_prob, reuse):
-        with tf.variable_scope('ConvNet', reuse=reuse):
+    def model(x, s=None, d=None, keep_prob=1, training=True):
+        with tf.variable_scope('ConvNet', reuse=tf.AUTO_REUSE):
             x = x - tf.reduce_min(x)
             conv = (x / tf.reduce_max(x))-0.5
             conv = conv2d(conv, 4, 5, stride=5, activation_fn=tf.nn.leaky_relu)
@@ -66,6 +66,56 @@ with tf.device("/gpu:0"):
             conv = fully_connected(conv, 1, activation_fn=None)
         return conv
 
+def loss(preds, labels):
+    return tf.losses.sigmoid_cross_entropy(labels, preds)
+
+def train_one_epoch(sess, train_op, logits, epoch, log_interval=10):
+    def model_loss_auc(preds, y):
+        loss_value = loss(preds, y)
+        auc = roc_auc_score(y, preds)
+        return loss_value.numpy(), auc
+
+    def model_loss(x, y):
+        preds = model(x, training=True)
+        loss_value = loss(preds, y)
+        return loss_value
+
+    with tf.device("/GPU:0"):
+        sess.run(train_iterator.initializer)
+        while not tf.errors.OutOfRangeError:
+            images, labels, su, de = sess.run(train_iterator.get_next())
+            _ = sess.run([train_op, logits], feed_dict={x: images, y:labels})
+            print(batch)
+            if batch%log_interval == 0:
+                saver = tf.train.Saver(max_to_keep=100)
+                _ = saver.save(sess, save_path=str("../Models/Breast_Cancer/model-" + str(model_version)),
+                               global_step=batch)
+
+def save_training_progress(vars):
+    with open("../Models/"+str(model_version)+ "/"+str(run_number)+"/Training_Progress.txt", "a+") as f:
+        f.write(vars+"\n")
+
+def evaluate(model, train_values, datasets, epoch, batch):
+    def model_loss_auc(x, y):
+        preds = model(x, training=False)
+        loss_value = loss(preds, y)
+        auc = roc_auc_score(y, preds)
+        return loss_value.numpy(), auc
+    with tf.device("/GPU:0"):
+        trl, tra = train_values
+        val_dataset = datasets[0]
+        test_dataset = datasets[1]
+        vl, va, tl, ta = 0, 0, 0, 0
+        for (x, y, s, d) in tfe.Iterator(val_dataset):
+            vl, va = model_loss_auc(x, y)
+        for (x, y, s, d) in tfe.Iterator(test_dataset):
+            tl, ta = model_loss_auc(x, y)
+    print("Training Loss: {:.5f}, Training AUC: {:.2f}, Validation Loss: {:.5f}, Validation AUC: {:.2f}, "
+          "Testing Loss: {:.5f}, Testing AUC: {:.2f}".format(trl, tra*100, vl, va*100, tl, ta*100))
+    save_training_progress("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, "
+                           "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, "
+                           "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
+
 
 with tf.Session() as sess:
     x = tf.placeholder(tf.float32, shape=[None, image_dimensions[0], image_dimensions[1], 1], name="input")
@@ -74,17 +124,15 @@ with tf.Session() as sess:
     d = tf.placeholder(tf.float32, shape=[None, 1], name="density")
     keep_prob = tf.placeholder(tf.float32, name='keep_prob')
 
-    logits = convnet(x, s, d, keep_prob, reuse=tf.AUTO_REUSE)
-    val_logits = convnet(x, s, d, keep_prob, reuse=tf.AUTO_REUSE)
-    make_sense_logits = tf.sigmoid(val_logits)
+    logits = model(x)
 
     loss_op = tf.losses.sigmoid_cross_entropy(y, logits)
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     train_op = optimizer.minimize(loss_op)
-    auc = tf.metrics.auc(y, make_sense_logits, num_thresholds=20)
-    saver = tf.train.Saver(max_to_keep=100)
     sess.run(tf.group(tf.global_variables_initializer(), tf.local_variables_initializer()))
-    sess.run(iterator.initializer)
+    for epoch in range(num_epochs):
+        train_one_epoch(sess, train_op, epoch, log_interval=10)
+
     batch = 0
     batch_loss = 0
     batch_auc = 0
@@ -142,8 +190,6 @@ with tf.Session() as sess:
                 val_loss = 0
                 val_auc = 0
             if batch%20==0 and batch!=0:
-                _ = saver.save(sess, save_path=str("../Models/Breast_Cancer/model-" + str(model_version)),
-                               global_step=batch)
         except tf.errors.OutOfRangeError:
             break
 
