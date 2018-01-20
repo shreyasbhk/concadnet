@@ -10,13 +10,13 @@ from tensorflow.contrib.eager.python import tfe
 
 tfe.enable_eager_execution()
 
-model_version = 12
-run_number = 1
+model_version = 13
+run_number = 2
 
 batch_size = 100
 val_batch_size = 400
 learning_rate = 0.0003
-num_epochs = 50
+num_epochs = 21
 
 image_dimensions = (100, 100)
 train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
@@ -106,8 +106,6 @@ class ConCaDNet(tfe.Network):
                                                       activation=tf.nn.leaky_relu))
         self.l3_mp = self.track_layer(tf.layers.MaxPooling2D(3, strides=2, padding="SAME"))
 
-        self.fc_1 = self.track_layer(tf.layers.Dense(units=4096, activation=tf.nn.tanh))
-        self.fc_2 = self.track_layer(tf.layers.Dense(units=4096, activation=tf.nn.tanh))
         self.fc_out = self.track_layer(tf.layers.Dense(units=1))
 
     def display_layers(self, inputs, layers):
@@ -125,13 +123,9 @@ class ConCaDNet(tfe.Network):
         conv5 = self.l3_1(conv4)
         conv6 = self.l3_2(conv5)
         conv = self.l3_mp(conv6)
-
         self.display_layers(inputs, [conv1, conv3, conv5, conv6]) if display_image else None
         conv = tf.layers.flatten(conv)
-        #conv = self.fc_1(conv)
         conv = tf.nn.dropout(conv, keep_prob=0.5) if training else conv
-        # conv = self.fc_2(conv)
-        # conv = tf.nn.dropout(conv, keep_prob=0.5) if training else conv
         conv = self.fc_out(conv)
 
         return conv
@@ -207,7 +201,7 @@ def train_model():
         print("Epoch #"+str(epoch))
         with tfe.restore_variables_on_create(tf.train.latest_checkpoint(directory)):
             with summary_writer.as_default():
-                train_one_epoch(model, optimizer, epoch, log_interval=20)
+                train_one_epoch(model, optimizer, epoch, log_interval=5)
 
 
 def test_model():
@@ -226,6 +220,6 @@ def test_model():
 
 
 if __name__ == "__main__":
-    # train_model()
-    test_model()
+    train_model()
+    #test_model()
 
