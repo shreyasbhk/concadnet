@@ -10,18 +10,18 @@ from tensorflow.contrib.eager.python import tfe
 
 tfe.enable_eager_execution()
 
-model_version = 13
-run_number = 2
+model_version = 14
+run_number = 1
 
 batch_size = 100
 val_batch_size = 400
 learning_rate = 0.0003
-num_epochs = 21
+num_epochs = 30
 
 image_dimensions = (100, 100)
-train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
-val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
-test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
+train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
+test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + ".tfrecords"
 
 
 def initialize_datasets():
@@ -122,8 +122,9 @@ class ConCaDNet(tfe.Network):
         conv4 = self.l2_mp(conv3)
         conv5 = self.l3_1(conv4)
         conv6 = self.l3_2(conv5)
-        conv = self.l3_mp(conv6)
-        self.display_layers(inputs, [conv1, conv3, conv5, conv6]) if display_image else None
+        conv7 = self.l3_3(conv5)
+        conv = self.l3_mp(conv7)
+        self.display_layers(inputs, [conv1, conv3, conv5, conv6, conv7]) if display_image else None
         conv = tf.layers.flatten(conv)
         conv = tf.nn.dropout(conv, keep_prob=0.5) if training else conv
         conv = self.fc_out(conv)
