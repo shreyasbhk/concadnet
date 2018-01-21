@@ -7,13 +7,13 @@ from tensorflow.contrib.eager.python import tfe
 
 tfe.enable_eager_execution()
 
+number_of_runs = 6
 model_version = 15
-run_number = "1_0"
 
 batch_size = 350
 val_batch_size = 500
 learning_rate = 0.0003
-num_epochs = 30
+num_epochs = 35
 
 image_dimensions = (75, 75)
 train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
@@ -168,7 +168,7 @@ def loss(preds, labels):
     return tf.losses.sigmoid_cross_entropy(labels, preds)
 
 
-def train_one_epoch(model, optimizer, epoch, log_interval=None):
+def train_one_epoch(model, optimizer, epoch, run_number, log_interval=None):
     tf.train.get_or_create_global_step()
     def model_loss_auc(x, y):
         preds = model(x, display_image=False)
@@ -187,7 +187,7 @@ def train_one_epoch(model, optimizer, epoch, log_interval=None):
             grads = tfe.implicit_gradients(model_loss)(x, y)
             optimizer.apply_gradients(grads)
             if batch%log_interval == 0:
-                evaluate(model, model_loss_auc(x, y), [v_ds, t_ds], epoch, batch)
+                evaluate(model, model_loss_auc(x, y), [v_ds, t_ds], epoch, batch, run_number)
             if batch%(log_interval*2) == 0:
                 global_step = tf.train.get_or_create_global_step()
                 all_variables = (model.variables + optimizer.variables() + [global_step])
@@ -195,12 +195,12 @@ def train_one_epoch(model, optimizer, epoch, log_interval=None):
                 _ = saver.save("../Models/"+str(model_version)+"/"+str(run_number)+"/"+str(epoch)+"-"+str(batch))
 
 
-def save_training_progress(vars):
+def save_training_progress(run_number, vars):
     with open("../Models/"+str(model_version)+ "/"+str(run_number)+"/Training_Progress.txt", "a+") as f:
         f.write(vars+"\n")
 
 
-def evaluate(model, train_values, datasets, epoch, batch):
+def evaluate(model, train_values, datasets, epoch, batch, run_number):
     def get_ranges(x):
         return model(x, return_ranges=True)
 
@@ -227,27 +227,25 @@ def evaluate(model, train_values, datasets, epoch, batch):
         print("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, " 
               "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, " 
               "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
-        save_training_progress("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, "
+        save_training_progress(run_number, "Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, "
                                "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, "
                                "Testing AUC: {:.2f}, Layer Ranges: {}"
                                .format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100, ranges))
 
 
-def train_model():
+def train_model(run_number):
     model = ConCaDNet()
     optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     directory = "../Models/"+str(model_version)+"/"+str(run_number)+"/"
     if not os.path.exists(directory):
         os.makedirs(directory)
-    summary_writer = tf.contrib.summary.create_file_writer(directory, flush_millis=10000)
     for epoch in range(1, num_epochs):
         print("Epoch #"+str(epoch))
         with tfe.restore_variables_on_create(tf.train.latest_checkpoint(directory)):
-            with summary_writer.as_default():
-                train_one_epoch(model, optimizer, epoch, log_interval=5)
+            train_one_epoch(model, optimizer, epoch, run_number, log_interval=5)
 
 
-def test_model():
+def test_model(run_number):
     def model_loss_auc(model, x, y):
         preds = model(x, training=False)
         #loss_value = loss(preds, y)
@@ -263,6 +261,7 @@ def test_model():
 
 
 if __name__ == "__main__":
-    train_model()
+    for a in range(3, number_of_runs):
+        train_model(run_number=a)
     #test_model()
 

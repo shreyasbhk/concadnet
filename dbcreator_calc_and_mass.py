@@ -33,7 +33,7 @@ def add_random_augmentation(image):
     rotation_angle = np.random.choice(4, 1)[0]*90
     m = cv2.getRotationMatrix2D((col / 2, row / 2), rotation_angle, 1)
     image = cv2.warpAffine(image, m, (col, row))
-    zoom_factor = 1+(np.random.random()*0.5)
+    zoom_factor = 1+(np.random.random()*0.25)
     image = cv2.resize(image,image_dimensions, fx=zoom_factor, fy=zoom_factor, interpolation=0)
     #display_image(image)
     return image
@@ -181,7 +181,7 @@ def patients_sequencer(filename, training):
         random_array = np.arange(num_examples)
         np.random.shuffle(random_array)
         for i in range(num_examples):
-            if i < num_examples*0.8:
+            if i < num_examples*0.95:
                 patient = patients[random_array[i]]
                 train_patients.append(patient)
             else:
