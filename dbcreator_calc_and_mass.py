@@ -5,7 +5,7 @@ import csv
 import cv2
 import os
 
-image_dimensions = (100, 100)
+image_dimensions = (75, 75)
 
 training_csv_file_m = "../Data/mass_case_description_train_set.csv"
 training_csv_file_c = "../Data/calc_case_description_train_set.csv"

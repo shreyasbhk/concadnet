@@ -1,6 +1,3 @@
-'''
-ConCaDNet V2.0 - Eager
-'''
 import tensorflow as tf
 from sklearn.metrics import confusion_matrix, roc_auc_score
 import os
@@ -18,7 +15,7 @@ val_batch_size = 400
 learning_rate = 0.0003
 num_epochs = 30
 
-image_dimensions = (100, 100)
+image_dimensions = (75, 75)
 train_dataset_file = "../Data/train_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
 val_dataset_file = "../Data/val_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
 test_dataset_file = "../Data/test_"+str(image_dimensions[0]) + "x" + str(image_dimensions[1]) + "-m-only.tfrecords"
@@ -67,19 +64,7 @@ def display_layer(input, layer, window_name):
     layer = layer - np.min(layer)
     max_activation = np.max(layer)
     rescaled = layer/max_activation
-    temp_ranges = {"0.1": 0, "0.25": 0, "0.5": 0, "0.75": 0, "1": 0}
-    for i in range(layer.numpy().shape[2]):
-        if (np.max(rescaled[:, :, i])-np.min(rescaled[:, :, i])) < 0.1:
-            temp_ranges["0.1"] += 1
-        elif (np.max(rescaled[:, :, i])-np.min(rescaled[:, :, i])) < 0.25:
-            temp_ranges["0.25"] += 1
-        elif (np.max(rescaled[:, :, i])-np.min(rescaled[:, :, i])) < 0.5:
-            temp_ranges["0.5"] += 1
-        elif (np.max(rescaled[:, :, i])-np.min(rescaled[:, :, i])) < 0.75:
-            temp_ranges["0.75"] += 1
-        else:
-            temp_ranges["1"] += 1
-    images = (65535*(rescaled)).numpy().astype(np.uint16)
+    images = (65535*rescaled).numpy().astype(np.uint16)
     num_kernels = layer.numpy().shape[2]
     rows = 16
     cols = int(num_kernels/16)
@@ -95,7 +80,6 @@ def display_layer(input, layer, window_name):
             final_concat = np.concatenate((final_concat, rc), axis=0)
     cv2.imshow(window_name, final_concat)
     cv2.waitKey(2)
-    return temp_ranges
 
 
 class ConCaDNet(tfe.Network):
@@ -126,30 +110,31 @@ class ConCaDNet(tfe.Network):
         # image_num = 1+int(np.round(np.random.random()*150))
         image_num = 1
         for (i, layer) in enumerate(layers):
-            ranges = display_layer(inputs[image_num], layer[image_num], window_name="Layer "+str(i))
-            print("Layer {} Ranges: {}".format(i, ranges))
+            display_layer(inputs[image_num], layer[image_num], window_name="Layer "+str(i))
 
     def calculate_ranges(self, layers):
-        temp_arr = []
-        '''for (i, layer) in enumerate(layers):
+        temp_dict = {}
+        for (i, layer) in enumerate(layers):
             layer = layer - np.min(layer)
             max_activation = np.max(layer)
             rescaled = layer / max_activation
             temp_ranges = {"0.1": 0, "0.25": 0, "0.5": 0, "0.75": 0, "1": 0}
-            for j in range(layer.numpy().shape[2]):
-                if (np.max(rescaled[:, :, j]) - np.min(rescaled[:, :, j])) < 0.1:
+            for j in range(layer.numpy().shape[3]):
+                if (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.1:
                     temp_ranges["0.1"] += 1
-                elif (np.max(rescaled[:, :, j]) - np.min(rescaled[:, :, j])) < 0.25:
+                elif (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.25:
                     temp_ranges["0.25"] += 1
-                elif (np.max(rescaled[:, :, j]) - np.min(rescaled[:, :, j])) < 0.5:
+                elif (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.5:
                     temp_ranges["0.5"] += 1
-                elif (np.max(rescaled[:, :, j]) - np.min(rescaled[:, :, j])) < 0.75:
+                elif (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.75:
                     temp_ranges["0.75"] += 1
                 else:
                     temp_ranges["1"] += 1
-            temp_arr.append("Layer {} Ranges: {}".format(i, temp_ranges))'''
+            temp_dict["Layer "+str(i)] = temp_ranges
+            print("Layer {} Ranges: {}".format(i, temp_ranges))
+        return temp_dict
 
-    def call(self, inputs, display_image=True, training=False, return_ranges=False):
+    def call(self, inputs, display_image=False, training=False, return_ranges=False):
         x = ((inputs-tf.reduce_min(inputs))/tf.reduce_max(inputs))-0.5
         conv1 = self.l1_1(x)
         conv2 = self.l1_mp(conv1)
@@ -221,20 +206,17 @@ def evaluate(model, train_values, datasets, epoch, batch):
         vl, va = model_loss_auc(x, y, display_image=False)
         test = tfe.Iterator(test_dataset)
         x, y, s, d = test.next()
-        tl, ta = model_loss_auc(x, y, display_image=True)
+        tl, ta = model_loss_auc(x, y, display_image=False)
         test = tfe.Iterator(test_dataset)
         x, y, s, d = test.next()
-        #ranges = get_ranges(x)
+        ranges = get_ranges(x)
     print("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, " 
           "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, " 
           "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
-    '''layer = 0
-    for mean in means:
-        print("Layer "+str(layer)+": "+str(mean))
-        layer += 1'''
     save_training_progress("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, "
                            "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, "
-                           "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
+                           "Testing AUC: {:.2f}, Layer Ranges: {}"
+                           .format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100, ranges))
 
 
 def train_model():
