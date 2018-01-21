@@ -120,18 +120,18 @@ class ConCaDNet(tfe.Network):
             rescaled = layer / max_activation
             temp_ranges = {"0.1": 0, "0.25": 0, "0.5": 0, "0.75": 0, "1": 0}
             for j in range(layer.numpy().shape[3]):
-                if (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.1:
+                r = np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])
+                if r < 0.1:
                     temp_ranges["0.1"] += 1
-                elif (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.25:
+                elif r < 0.25:
                     temp_ranges["0.25"] += 1
-                elif (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.5:
+                elif r < 0.5:
                     temp_ranges["0.5"] += 1
-                elif (np.max(rescaled[:, :, :, j]) - np.min(rescaled[:, :, :, j])) < 0.75:
+                elif r < 0.75:
                     temp_ranges["0.75"] += 1
                 else:
                     temp_ranges["1"] += 1
             temp_dict["Layer "+str(i)] = temp_ranges
-            print("Layer {} Ranges: {}".format(i, temp_ranges))
         return temp_dict
 
     def call(self, inputs, display_image=False, training=False, return_ranges=False):
@@ -210,6 +210,8 @@ def evaluate(model, train_values, datasets, epoch, batch):
         test = tfe.Iterator(test_dataset)
         x, y, s, d = test.next()
         ranges = get_ranges(x)
+    for r in range(len(ranges)):
+        print("Layer {} Ranges: {}".format(r, ranges["Layer "+str(r)]))
     print("Epoch: {}, Batch {}, Training Loss: {:.5f}, Training AUC: {:.2f}, " 
           "Validation Loss: {:.5f}, Validation AUC: {:.2f}, Testing Loss: {:.5f}, " 
           "Testing AUC: {:.2f}".format(epoch, batch, trl, tra*100, vl, va*100, tl, ta*100))
