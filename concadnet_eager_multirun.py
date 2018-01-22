@@ -7,8 +7,8 @@ from tensorflow.contrib.eager.python import tfe
 
 tfe.enable_eager_execution()
 
-number_of_runs = 6
-model_version = 15
+number_of_runs = 3
+model_version = 16
 
 batch_size = 350
 val_batch_size = 500
@@ -88,19 +88,19 @@ class ConCaDNet(tfe.Network):
     """
     def __init__(self):
         super(ConCaDNet, self).__init__(name='')
-        self.l1_1 = self.track_layer(tf.layers.Conv2D(96, 11, strides=1, padding="SAME", name="Conv_1_1",
+        self.l1_1 = self.track_layer(tf.layers.Conv2D(48, 11, strides=1, padding="SAME", name="Conv_1_1",
                                                       activation=tf.nn.leaky_relu))
         self.l1_mp = self.track_layer(tf.layers.MaxPooling2D(3, strides=2, padding="SAME"))
 
-        self.l2_1 = self.track_layer(tf.layers.Conv2D(256, 5, strides=1, padding="SAME", name="Conv_2_1",
+        self.l2_1 = self.track_layer(tf.layers.Conv2D(128, 5, strides=1, padding="SAME", name="Conv_2_1",
                                                       activation=tf.nn.leaky_relu))
         self.l2_mp = self.track_layer(tf.layers.MaxPooling2D(3, strides=2, padding="SAME"))
 
-        self.l3_1 = self.track_layer(tf.layers.Conv2D(384, 3, strides=1, padding="SAME", name="Conv_3_1",
+        self.l3_1 = self.track_layer(tf.layers.Conv2D(192, 3, strides=1, padding="SAME", name="Conv_3_1",
                                                       activation=tf.nn.leaky_relu))
-        self.l3_2 = self.track_layer(tf.layers.Conv2D(384, 3, strides=1, padding="SAME", name="Conv_3_2",
+        self.l3_2 = self.track_layer(tf.layers.Conv2D(192, 3, strides=1, padding="SAME", name="Conv_3_2",
                                                       activation=tf.nn.leaky_relu))
-        self.l3_3 = self.track_layer(tf.layers.Conv2D(256, 3, strides=1, padding="SAME", name="Conv_3_3",
+        self.l3_3 = self.track_layer(tf.layers.Conv2D(128, 3, strides=1, padding="SAME", name="Conv_3_3",
                                                       activation=tf.nn.leaky_relu))
         self.l3_mp = self.track_layer(tf.layers.MaxPooling2D(3, strides=2, padding="SAME"))
 
@@ -218,7 +218,7 @@ def evaluate(model, train_values, datasets, epoch, batch, run_number):
         vl, va = model_loss_auc(x, y, display_image=False)
         test = tfe.Iterator(test_dataset)
         x, y, s, d = test.next()
-        tl, ta = model_loss_auc(x, y, display_image=False)
+        tl, ta = model_loss_auc(x, y, display_image=True)
         test = tfe.Iterator(test_dataset)
         x, y, s, d = test.next()
         ranges = get_ranges(x)
@@ -261,7 +261,7 @@ def test_model(run_number):
 
 
 if __name__ == "__main__":
-    for a in range(3, number_of_runs):
+    for a in range(0, number_of_runs):
         train_model(run_number=a)
     #test_model()
 
