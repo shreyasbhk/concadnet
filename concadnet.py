@@ -1,9 +1,11 @@
 '''
-Runs on Calc and Mass Data
+Created By Shreyas Hukkeri
+Printed Saturday, January 21, 2018
 '''
 import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected, batch_norm
 from sklearn.metrics import confusion_matrix, roc_auc_score
+import tensorflow.python.eager as tfe
 import time
 
 

@@ -1,4 +1,7 @@
-
+'''
+Created By Shreyas Hukkeri
+Printed Saturday, January 21, 2018
+'''
 
         self.l2_1 = self.track_layer(tf.layers.Conv2D(16, 5, padding="SAME", activation=tf.nn.leaky_relu))
         self.l2_2 = self.track_layer(tf.layers.Conv2D(16, 5, padding="SAME", activation=tf.nn.leaky_relu))

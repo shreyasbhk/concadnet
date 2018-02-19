@@ -1,3 +1,7 @@
+'''
+Created By Shreyas Hukkeri
+Printed Saturday, January 21, 2018
+'''
 import tensorflow as tf
 import dicom
 import numpy as np

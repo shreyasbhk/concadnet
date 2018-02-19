@@ -1,6 +1,6 @@
 '''
-Runs on Calc and Mass Data
-0.71126 AUC, Model Num 6
+Created By Shreyas Hukkeri
+Printed Saturday, January 21, 2018
 '''
 import tensorflow as tf
 from tensorflow.contrib.layers import conv2d, max_pool2d, flatten, dropout, fully_connected
